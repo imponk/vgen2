@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Reels – Upper / Judul / Subjudul / Isi (Kerning + Wrap)</title>
+  <title>Reels – Upper / Judul / Subjudul / Isi (Final – Kerning + Wrap + Wipe)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Google Fonts -->
@@ -116,8 +116,9 @@
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
       Upper + Judul + Subjudul: <b>fade-in bersama</b>, lalu diam.<br>
-      Isi dipisah per halaman dengan <b>1 baris kosong</b> di antara isi 1, 2, 3, dst.<br>
-      Kerning isi dijaga (1 baris canvas = 1 fillText) <b>dan sekarang sudah wrap ke frame</b>.
+      Isi: dipisah per halaman dengan <b>1 baris kosong</b>, tampil dengan
+      <b>fade-in + sapuan dari kiri ke kanan</b> dan durasi otomatis berdasarkan panjang karakter.
+      Plus Jakarta Sans tetap dipakai dengan kerning dijaga.
     </small>
 
     <div class="field">
@@ -181,12 +182,12 @@
 
     // halaman isi: array halaman, tiap halaman = array baris
     let bodyPages = [];
+    let pageDurations = [];   // durasi per halaman isi (detik)
 
-    // Konstanta animasi judul & isi
+    // Konstanta animasi judul & jeda
     const TITLE_FADE_IN = 0.8;        // durasi fade-in judul block
     const TITLE_STATIC_AFTER = 2.2;   // durasi diam setelah fade-in (total judul ~3 detik)
     const GAP_AFTER_TITLE = 1.0;      // jeda abu sebelum isi
-    const PER_PAGE_DURATION = 3.0;    // durasi tiap halaman isi
 
     function setStatus(text) {
       statusText.textContent = "Status: " + text;
@@ -395,7 +396,7 @@
       ctx.globalAlpha = 1;
     }
 
-    // Slide isi per halaman (beberapa baris, bisa wrap)
+    // Slide isi per halaman (beberapa baris, wrap + fade + wipe kiri→kanan)
     function drawBodyPage(pageIndex, t, sceneDur) {
       const W = canvas.width;
       const H = canvas.height;
@@ -406,8 +407,12 @@
       const marginRight = 140;
       const maxWidth = W - marginLeft - marginRight;
 
-      const fadeInDur = 0.5;
+      // Durasi animasi
+      const fadeInDur = 0.6;
+      const wipeDur   = 0.8;   // durasi sapuan kiri→kanan
       const fadeOutDur = 0.5;
+
+      // Hitung alpha (fade)
       let alpha = 1;
       if (t < fadeInDur) {
         alpha = t / fadeInDur;
@@ -415,7 +420,22 @@
         alpha = (sceneDur - t) / fadeOutDur;
       }
       alpha = Math.max(0, Math.min(1, alpha));
+
+      // Hitung wipe progress (0..1)
+      let wipeProgress = 1;
+      if (t < wipeDur) {
+        wipeProgress = t / wipeDur;
+      } else {
+        wipeProgress = 1;
+      }
+
+      ctx.save();
       ctx.globalAlpha = alpha;
+
+      // Clip dari kiri → kanan
+      ctx.beginPath();
+      ctx.rect(0, 0, marginLeft + maxWidth * wipeProgress, H);
+      ctx.clip();
 
       ctx.textAlign = "left";
       ctx.font = "700 56px 'Plus Jakarta Sans', system-ui";
@@ -442,6 +462,7 @@
         );
       }
 
+      ctx.restore();
       ctx.globalAlpha = 1;
     }
 
@@ -476,12 +497,33 @@
       }
     }
 
-    // hitung total durasi berdasarkan jumlah halaman isi
+    // hitung total durasi berdasarkan panjang karakter per halaman
     function recomputeTargetDuration() {
       rebuildBodyPages();
       const pagesCount = bodyPages.length;
+
+      pageDurations = [];
+
+      // parameter kecepatan baca
+      const basePerPage = 2.5;    // detik dasar per halaman
+      const perChar = 0.035;      // detik tambahan per karakter
+      const minDur = 3.0;         // min durasi per halaman
+      const maxDur = 10.0;        // max durasi per halaman
+
+      for (let i = 0; i < pagesCount; i++) {
+        const lines = bodyPages[i];
+        const text = lines.join(" ");
+        const charCount = text.replace(/\s+/g, "").length;
+
+        let dur = basePerPage + charCount * perChar;
+        if (dur < minDur) dur = minDur;
+        if (dur > maxDur) dur = maxDur;
+
+        pageDurations.push(dur);
+      }
+
       const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER;
-      const isiTotal = pagesCount * PER_PAGE_DURATION;
+      const isiTotal = pageDurations.reduce((a, b) => a + b, 0);
       targetDuration = titleTotal + GAP_AFTER_TITLE + isiTotal;
     }
 
@@ -489,24 +531,41 @@
       const pagesCount = bodyPages.length;
       const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER;
       const gapEnd = titleTotal + GAP_AFTER_TITLE;
-      const perPageDur = PER_PAGE_DURATION;
 
       if (globalT <= titleTotal) {
+        // fase judul
         drawSlide1(globalT, titleTotal);
       } else if (globalT <= gapEnd) {
+        // jeda abu
         drawBaseBackground();
       } else {
+        // fase isi
         const tIsi = globalT - gapEnd;
-        const totalIsiDur = pagesCount * perPageDur;
-        const tClamped = Math.min(tIsi, totalIsiDur - 0.0001);
+        const totalIsiDur = pageDurations.reduce((a, b) => a + b, 0);
 
-        const pageIndex = Math.min(
-          pagesCount - 1,
-          Math.floor(tClamped / perPageDur)
-        );
-        const tInPage = tClamped - pageIndex * perPageDur;
+        if (tIsi >= totalIsiDur) {
+          // sudah lewat semua halaman, kunci di halaman terakhir
+          const lastIndex = pagesCount - 1;
+          const sceneDurLast = pageDurations[lastIndex] || 1;
+          const tInPageLast = sceneDurLast - 0.0001;
+          drawBodyPage(lastIndex, tInPageLast, sceneDurLast);
+          return;
+        }
 
-        drawBodyPage(pageIndex, tInPage, perPageDur);
+        let acc = 0;
+        let pageIndex = 0;
+        while (pageIndex < pagesCount && tIsi >= acc + pageDurations[pageIndex]) {
+          acc += pageDurations[pageIndex];
+          pageIndex++;
+        }
+
+        if (pageIndex >= pagesCount) {
+          pageIndex = pagesCount - 1;
+        }
+
+        const sceneDur = pageDurations[pageIndex] || 1;
+        const tInPage = tIsi - acc;
+        drawBodyPage(pageIndex, tInPage, sceneDur);
       }
     }
 

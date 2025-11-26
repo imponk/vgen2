@@ -264,7 +264,7 @@ function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlight
     const wInside = ctx.measureText(inside).width;
     const visible = wInside * lineProgress;
     const rectX = x + wBefore - 4;
-    const rectY = y - 42;   // dinaikkan 2px
+    const rectY = y - 44;   // dinaikkan 2px
     const rectH = 58;       // lebih tinggi
     ctx.fillStyle = highlightBg;
     ctx.fillRect(rectX, rectY, visible + 8, rectH);

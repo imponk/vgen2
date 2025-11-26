@@ -162,7 +162,7 @@ const TITLE_STATIC   = 1.0;   // hold setelah animasi
 // Isi timing (cepat ringan)
 const BODY_FADE_IN   = 0.3;
 const BODY_WIPE      = 0.4;
-const BODY_FADE_OUT  = 0.5;
+const BODY_FADE_OUT  = 0.5;   // tidak dipakai untuk alpha (fade-out dihapus)
 const HIGHLIGHT_LINE_DUR = 0.8;  // durasi highlight per baris
 
 function setStatus(t) {
@@ -222,13 +222,11 @@ function tokenizeHighlighted(text) {
 // Gambar satu baris (visual line) dengan highlight kontinyu dan progress per baris
 function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlightBg, lineProgress) {
   if (lineProgress <= 0) {
-    // belum mulai highlight, cukup gambar teks
-    const full = tokens.map(t => t.text).join('');
+    const full0 = tokens.map(t => t.text).join('');
     ctx.fillStyle = normalColor;
-    ctx.fillText(full, x, y);
+    ctx.fillText(full0, x, y);
     return;
   }
-
   if (lineProgress > 1) lineProgress = 1;
 
   let full = '';
@@ -254,7 +252,7 @@ function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlight
     const visible = wInside * lineProgress;
     const rectX = x + wBefore - 4;
     const rectY = y - 40;
-    const rectH = 52;
+    const rectH = 54;  // dinaikkan 2px dari 52
     ctx.fillStyle = highlightBg;
     ctx.fillRect(rectX, rectY, visible + 8, rectH);
   }
@@ -319,7 +317,7 @@ function drawTitleScene(t) {
   const marginLeft = 110;
   const marginRight = 140;
   const textWidth = W - marginLeft - marginRight;
-  let y = H - 560;
+  let y = H - 600;  // dinaikkan sedikit agar Upper lebih tinggi
 
   const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
   const totalTitleTime = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
@@ -365,7 +363,7 @@ function drawTitleScene(t) {
       ctx.fillText(line, marginLeft, y);
       y += lhUpper;
     }
-    y += 22;
+    y += 32; // jarak ekstra lebih besar agar tidak nabrak judul
   }
 
   if (title) {
@@ -377,7 +375,7 @@ function drawTitleScene(t) {
       ctx.fillText(line, marginLeft, y);
       y += lhTitle;
     }
-    y += 12;
+    y += 4; // jarak ke subjudul dipersempit
   }
 
   if (subtitle) {
@@ -408,8 +406,6 @@ function drawBodyPage(pageIndex, t, sceneDur) {
   let alpha = 1;
   if (t < BODY_FADE_IN) {
     alpha = t / BODY_FADE_IN;
-  } else if (sceneDur - t < BODY_FADE_OUT) {
-    alpha = (sceneDur - t) / BODY_FADE_OUT;
   }
   alpha = Math.max(0, Math.min(1, alpha));
 
@@ -522,13 +518,12 @@ function drawFrame(globalT) {
     acc += d;
   }
 
-  // setelah semua selesai, tahan di halaman terakhir
   const lastIndex = bodyPages.length - 1;
   const lastDur = pageDurations[lastIndex] || 1;
   drawBodyPage(lastIndex, lastDur - 0.001, lastDur);
 }
 
-// Animasi preview
+// Animasi
 let animStart = null;
 function animate(ts) {
   if (!animating && !recording) return;

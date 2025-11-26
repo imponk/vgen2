@@ -2,178 +2,606 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>Reels Generator Fast Light</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-body{margin:0;padding:16px;display:flex;gap:16px;background:#0f172a;color:#e5e7eb;font-family:'Plus Jakarta Sans',sans-serif}
-.panel{background:#020617;padding:16px;border-radius:12px;width:360px}
-.right{flex:1;display:flex;justify-content:center;align-items:center}
-textarea{width:100%;min-height:60px;background:#020617;color:white;border:1px solid #333;border-radius:8px;padding:8px}
-button{padding:8px 16px;border-radius:20px;border:none;margin-top:8px;cursor:pointer}
-.btn-primary{background:#2563eb;color:white}
-canvas{background:#999;border-radius:20px;box-shadow:0 0 20px #000}
-</style>
+  <meta charset="UTF-8">
+  <title>Reels – Fast Light (Upper/Judul/Subjudul + Isi)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      gap: 16px;
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .panel {
+      background: #020617;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    }
+    .left {
+      width: 360px;
+      flex-shrink: 0;
+    }
+    .right {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    h2 {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+    }
+    small {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+    .field { margin-top: 10px; }
+    label {
+      font-size: 13px;
+      display: block;
+      margin-bottom: 4px;
+      color: #9ca3af;
+    }
+    textarea {
+      width: 100%;
+      min-height: 50px;
+      background: #020617;
+      color: #e5e7eb;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      padding: 8px 10px;
+      font-size: 14px;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: #2563eb;
+    }
+    .btn-row {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-secondary { background: #111827; color: #e5e7eb; }
+    .status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    #download { margin-top: 8px; font-size: 13px; }
+    canvas {
+      background: #9a9a9a;
+      border-radius: 18px;
+      border: 1px solid #4b5563;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.65);
+      max-height: 92vh;
+    }
+  </style>
 </head>
 <body>
-<div class="panel">
-<h2>Reels Generator</h2>
-<label>Upper</label><textarea id="upper"></textarea>
-<label>Judul</label><textarea id="title"></textarea>
-<label>Subjudul</label><textarea id="subtitle"></textarea>
-<label>Isi</label><textarea id="body"></textarea>
-<button class="btn-primary" id="preview">Preview</button>
-<button class="btn-primary" id="render">Render</button>
-<div id="download"></div>
-</div>
-<div class="right"><canvas id="c" width="1080" height="1920"></canvas></div>
+  <div class="panel left">
+    <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
+    <small>
+      Upper/Judul/Subjudul: muncul <b>statis 1 detik</b>, lalu <b>fade + sapu kiri→kanan</b>.<br>
+      Isi: animasi <b>cepat ringan</b>, highlight [[...]] bergerak <b>per baris</b> (baris 1 dulu, lalu baris 2, dst).
+    </small>
+    <div class="field">
+      <label>Upper</label>
+      <textarea id="upper"></textarea>
+    </div>
+    <div class="field">
+      <label>Judul</label>
+      <textarea id="title"></textarea>
+    </div>
+    <div class="field">
+      <label>Subjudul</label>
+      <textarea id="subtitle"></textarea>
+    </div>
+    <div class="field">
+      <label>Isi</label>
+      <textarea id="body" placeholder="Pisah isi 1, isi 2, isi 3 dengan satu baris kosong.&#10;Gunakan [[highlight]] untuk menandai frasa penting."></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="previewBtn">Preview</button>
+      <button class="btn-primary" id="renderBtn">Render (WEBM)</button>
+    </div>
+    <div class="status" id="status">Status: idle</div>
+    <div id="download"></div>
+  </div>
+
+  <div class="panel right">
+    <canvas id="canvas" width="1080" height="1920"></canvas>
+  </div>
 
 <script>
-const c=document.getElementById("c"),ctx=c.getContext("2d");
-const upper=document.getElementById("upper"),title=document.getElementById("title"),
-subtitle=document.getElementById("subtitle"),body=document.getElementById("body");
-let pages=[],pageDur=[];
-const TITLE_PRE_HOLD=1.0,TITLE_FADE=0.6,TITLE_WIPE=0.8,TITLE_STATIC=1.0;
-const fadeInDur=0.3,wipeDur=0.4,highlightWipeDur=0.8;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
 
-function wrap(t,max){let w=t.split(" "),l=[w[0]];let i=1;for(;i<w.length;i++){let test=l[l.length-1]+" "+w[i];if(ctx.measureText(test).width>max){l.push(w[i]);}else l[l.length-1]=test;}return l;}
+const upperEl = document.getElementById('upper');
+const titleEl = document.getElementById('title');
+const subtitleEl = document.getElementById('subtitle');
+const bodyEl = document.getElementById('body');
+const previewBtn = document.getElementById('previewBtn');
+const renderBtn = document.getElementById('renderBtn');
+const statusEl = document.getElementById('status');
+const downloadEl = document.getElementById('download');
 
-function tokenize(t){let a=[],cur="",hi=false,i=0;function push(){if(cur.length)a.push({t:cur,h:hi});cur="";}while(i<t.length){if(!hi&&t.startsWith("[[",i)){push();hi=true;i+=2;}
-else if(hi&&t.startsWith("]]",i)){push();hi=false;i+=2;}
-else{cur+=t[i];if(t[i]==" ")push();i++;}}
-push();return a;}
+let animating = false;
+let recording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let startTime = null;
+let targetDuration = 12;
 
-function drawLine(tokens,x,y,prog){let full=tokens.map(o=>o.t).join("");let idx=0;
-for(let o of tokens){let wBefore=ctx.measureText(full.slice(0,idx)).width;
-let wInside=ctx.measureText(o.t).width;
-if(o.h&&o.t.trim()){let vis=wInside*prog;
-ctx.fillStyle="#0088d8";ctx.fillRect(x+wBefore-4,y-40,vis+8,52);}
-idx+=o.t.length;}
-ctx.fillStyle="#fff";ctx.fillText(full,x,y);
+let bodyPages = [];   // array halaman, tiap halaman = array string (paragraf)
+let pageDurations = [];
+
+// Judul timing
+const TITLE_PRE_HOLD = 1.0;   // detik statis sebelum efek
+const TITLE_FADE_IN  = 0.6;   // durasi fade
+const TITLE_WIPE     = 0.8;   // durasi sapu kiri→kanan
+const TITLE_STATIC   = 1.0;   // hold setelah animasi
+
+// Isi timing (cepat ringan)
+const BODY_FADE_IN   = 0.3;
+const BODY_WIPE      = 0.4;
+const BODY_FADE_OUT  = 0.5;
+const HIGHLIGHT_LINE_DUR = 0.8;  // durasi highlight per baris
+
+function setStatus(t) {
+  statusEl.textContent = 'Status: ' + t;
 }
 
-function drawRich(t,x,y,max,lineGap,prog){
-let tok=tokenize(t),lines=[],cur=[],ct="";
-for(let o of tok){
- let test=ct+o.t;
- if(ct&&ctx.measureText(test).width>max){lines.push(cur);cur=[o];ct=o.t;}
- else{cur.push(o);ct=test;}
-}
-if(cur.length)lines.push(cur);
-for(let ln of lines){drawLine(ln,x,y,prog);y+=lineGap;}
-return y;
-}
-
-function splitPages(){
-pages=[];let lines=body.value.split("\n"),p=[];
-for(let l of lines){
- if(!l.trim()){if(p.length){pages.push(p);p=[];}}
- else p.push(l);
-}
-if(p.length)pages.push(p);
-if(!pages.length)pages=[[]];
+// wrap text sederhana (judul, subjudul, upper)
+function wrapText(text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = words[0] || '';
+  for (let i = 1; i < words.length; i++) {
+    const test = line + ' ' + words[i];
+    if (ctx.measureText(test).width > maxWidth) {
+      lines.push(line);
+      line = words[i];
+    } else {
+      line = test;
+    }
+  }
+  lines.push(line);
+  return lines;
 }
 
-function computeDur(){
-splitPages();pageDur=[];
-for(let p of pages){
- let txt=p.join(" ").replace(/\s+/g,"");let ch=txt.length;
- let d=2.5+ch*0.035;if(d<3)d=3;if(d>10)d=10;
- pageDur.push(d);
-}
-}
-
-function bg(){ctx.fillStyle="#999";ctx.fillRect(0,0,c.width,c.height);}
-
-function drawTitle(t){
-bg();
-let ml=110,mr=140,w=c.width-ml-mr;
-let y=c.height-560;
-let up=upper.value.trim(),ti=title.value.trim(),sub=subtitle.value.trim();
-let animCore=Math.max(TITLE_FADE,TITLE_WIPE);
-let total=TITLE_PRE_HOLD+animCore+TITLE_STATIC;
-let alpha=1,wipe=1;
-
-if(t<TITLE_PRE_HOLD){alpha=1;wipe=1;}
-else{
- let a=t-TITLE_PRE_HOLD;
- if(a<=TITLE_FADE){
-   let p=a/TITLE_FADE;alpha=p*p*(3-2*p);
- } else alpha=1;
- if(a<=TITLE_WIPE)wipe=Math.min(1,a/TITLE_WIPE);
-}
-
-ctx.save();ctx.globalAlpha=alpha;
-ctx.beginPath();ctx.rect(0,0,ml+w*wipe,c.height);ctx.clip();
-ctx.textAlign="left";
-
-if(up){
- ctx.font="700 34px 'Plus Jakarta Sans'";let L=wrap(up,w);
- for(let ln of L){ctx.fillText(ln,ml,y);y+=36;}y+=22;
+// Tokenize dengan [[highlight]]
+function tokenizeHighlighted(text) {
+  let tokens = [];
+  let current = '';
+  let inHighlight = false;
+  let i = 0;
+  function pushCurrent() {
+    if (current.length > 0) {
+      tokens.push({ text: current, highlight: inHighlight });
+      current = '';
+    }
+  }
+  while (i < text.length) {
+    if (!inHighlight && text.startsWith('[[', i)) {
+      pushCurrent();
+      inHighlight = true;
+      i += 2;
+    } else if (inHighlight && text.startsWith(']]', i)) {
+      pushCurrent();
+      inHighlight = false;
+      i += 2;
+    } else {
+      const ch = text[i];
+      current += ch;
+      if (ch === ' ') pushCurrent();
+      i++;
+    }
+  }
+  pushCurrent();
+  return tokens;
 }
 
-if(ti){
- ctx.font="400 104px 'DM Serif Display'";let L=wrap(ti,w);
- for(let ln of L){ctx.fillText(ln,ml,y);y+=104;}y+=12;
+// Gambar satu baris (visual line) dengan highlight kontinyu dan progress per baris
+function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlightBg, lineProgress) {
+  if (lineProgress <= 0) {
+    // belum mulai highlight, cukup gambar teks
+    const full = tokens.map(t => t.text).join('');
+    ctx.fillStyle = normalColor;
+    ctx.fillText(full, x, y);
+    return;
+  }
+
+  if (lineProgress > 1) lineProgress = 1;
+
+  let full = '';
+  for (const t of tokens) full += t.text;
+
+  let firstHi = null;
+  let lastHi = null;
+  let index = 0;
+  for (const t of tokens) {
+    const len = t.text.length;
+    if (t.highlight && t.text.trim().length > 0) {
+      if (firstHi === null) firstHi = index;
+      lastHi = index + len;
+    }
+    index += len;
+  }
+
+  if (firstHi !== null && lastHi !== null) {
+    const before = full.slice(0, firstHi);
+    const inside = full.slice(firstHi, lastHi);
+    const wBefore = ctx.measureText(before).width;
+    const wInside = ctx.measureText(inside).width;
+    const visible = wInside * lineProgress;
+    const rectX = x + wBefore - 4;
+    const rectY = y - 40;
+    const rectH = 52;
+    ctx.fillStyle = highlightBg;
+    ctx.fillRect(rectX, rectY, visible + 8, rectH);
+  }
+
+  ctx.fillStyle = normalColor;
+  ctx.fillText(full, x, y);
 }
 
-if(sub){
- ctx.font="700 34px 'Plus Jakarta Sans'";let L=wrap(sub,w);
- for(let ln of L){ctx.fillText(ln,ml,y);y+=36;}
+// Gambar paragraf dengan wrap, highlight per baris berurutan di seluruh halaman
+function drawWrappedRichParagraph(text, x, yStart, maxWidth, lineGap, normalColor, highlightBg, globalLineIndexStart, timeForHighlight) {
+  const tokens = tokenizeHighlighted(text);
+  const linesTokens = [];
+  let currentTokens = [];
+  let currentText = '';
+
+  for (const tok of tokens) {
+    const test = currentText + tok.text;
+    const w = ctx.measureText(test).width;
+    if (currentText && w > maxWidth) {
+      linesTokens.push(currentTokens);
+      currentTokens = [tok];
+      currentText = tok.text;
+    } else {
+      currentTokens.push(tok);
+      currentText = test;
+    }
+  }
+  if (currentTokens.length > 0) linesTokens.push(currentTokens);
+
+  let y = yStart;
+  let globalLineIndex = globalLineIndexStart;
+
+  for (const lineTokens of linesTokens) {
+    const lineStartT = globalLineIndex * HIGHLIGHT_LINE_DUR;
+    const rel = (timeForHighlight - lineStartT) / HIGHLIGHT_LINE_DUR;
+    const lineProgress = Math.max(0, Math.min(rel, 1));
+
+    drawLineFromTokens(lineTokens, x, y, normalColor, normalColor, highlightBg, lineProgress);
+    y += lineGap;
+    globalLineIndex++;
+  }
+
+  return { y, linesUsed: linesTokens.length };
 }
 
-ctx.restore();
+// Background
+function drawBaseBackground() {
+  ctx.fillStyle = '#9a9a9a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-function drawPage(i,t,sd){
-bg();
-let ml=110,mr=140,max=c.width-ml-mr;
-let alpha=1;if(t<fadeInDur)alpha=t/fadeInDur;
-else if(sd-t<0.5)alpha=(sd-t)/0.5;
-alpha=Math.max(0,Math.min(1,alpha));
-let wipeP=1;if(t<wipeDur)wipeP=t/wipeDur;
-let hP=1;if(t<highlightWipeDur)hP=t/highlightWipeDur;
-ctx.save();ctx.globalAlpha=alpha;
-ctx.beginPath();ctx.rect(0,0,ml+max*wipeP,c.height);ctx.clip();
-ctx.font="700 56px 'Plus Jakarta Sans'";
-let y=c.height-600;
-for(let ln of pages[i]){
- if(!ln.trim()){y+=40;continue;}
- y=drawRich(ln,ml,y,max,64,hP);
-}
-ctx.restore();
+// Slide judul (Upper/Judul/Subjudul)
+function drawTitleScene(t) {
+  const W = canvas.width;
+  const H = canvas.height;
+  drawBaseBackground();
+
+  const upper = upperEl.value.trim();
+  const title = titleEl.value.trim();
+  const subtitle = subtitleEl.value.trim();
+
+  const marginLeft = 110;
+  const marginRight = 140;
+  const textWidth = W - marginLeft - marginRight;
+  let y = H - 560;
+
+  const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
+  const totalTitleTime = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
+
+  let alpha = 1;
+  let wipeProgress = 1;
+
+  if (t < TITLE_PRE_HOLD) {
+    alpha = 1;
+    wipeProgress = 1;
+  } else if (t < TITLE_PRE_HOLD + animCore) {
+    const tAnim = t - TITLE_PRE_HOLD;
+    if (tAnim <= TITLE_FADE_IN) {
+      const p = Math.max(0, Math.min(tAnim / TITLE_FADE_IN, 1));
+      const ease = p * p * (3 - 2 * p);
+      alpha = ease;
+    } else {
+      alpha = 1;
+    }
+    if (tAnim <= TITLE_WIPE) {
+      wipeProgress = Math.max(0, Math.min(tAnim / TITLE_WIPE, 1));
+    } else {
+      wipeProgress = 1;
+    }
+  } else {
+    alpha = 1;
+    wipeProgress = 1;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.rect(0, 0, marginLeft + textWidth * wipeProgress, H);
+  ctx.clip();
+  ctx.textAlign = 'left';
+
+  if (upper) {
+    ctx.font = "700 34px 'Plus Jakarta Sans'";
+    ctx.fillStyle = '#ffffff';
+    const linesUpper = wrapText(upper, textWidth);
+    const lhUpper = 36;
+    for (const line of linesUpper) {
+      ctx.fillText(line, marginLeft, y);
+      y += lhUpper;
+    }
+    y += 22;
+  }
+
+  if (title) {
+    ctx.font = "400 104px 'DM Serif Display'";
+    ctx.fillStyle = '#ffffff';
+    const linesTitle = wrapText(title, textWidth);
+    const lhTitle = 104;
+    for (const line of linesTitle) {
+      ctx.fillText(line, marginLeft, y);
+      y += lhTitle;
+    }
+    y += 12;
+  }
+
+  if (subtitle) {
+    ctx.font = "700 34px 'Plus Jakarta Sans'";
+    ctx.fillStyle = '#ffffff';
+    const linesSub = wrapText(subtitle, textWidth);
+    const lhSub = 36;
+    for (const line of linesSub) {
+      ctx.fillText(line, marginLeft, y);
+      y += lhSub;
+    }
+  }
+
+  ctx.restore();
 }
 
-function frame(t){
-let animCore=Math.max(TITLE_FADE,TITLE_WIPE);
-let titleTotal=TITLE_PRE_HOLD+animCore+TITLE_STATIC;
-let gap=titleTotal+1.0;
-if(t<titleTotal)return drawTitle(t);
-if(t<gap)return bg();
-let tt=t-gap;
-let acc=0;
-for(let i=0;i<pages.length;i++){
- let d=pageDur[i];
- if(tt<acc+d)return drawPage(i,tt-acc,d);
- acc+=d;
-}
-drawPage(pages.length-1,pageDur[pages.length-1]-0.001,pageDur[pages.length-1]);
+// Slide isi
+function drawBodyPage(pageIndex, t, sceneDur) {
+  const W = canvas.width;
+  const H = canvas.height;
+  drawBaseBackground();
+
+  const lines = bodyPages[pageIndex] || [];
+  const marginLeft = 110;
+  const marginRight = 140;
+  const maxWidth = W - marginLeft - marginRight;
+
+  let alpha = 1;
+  if (t < BODY_FADE_IN) {
+    alpha = t / BODY_FADE_IN;
+  } else if (sceneDur - t < BODY_FADE_OUT) {
+    alpha = (sceneDur - t) / BODY_FADE_OUT;
+  }
+  alpha = Math.max(0, Math.min(1, alpha));
+
+  let wipeProgress = 1;
+  if (t < BODY_WIPE) {
+    wipeProgress = t / BODY_WIPE;
+  } else {
+    wipeProgress = 1;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.rect(0, 0, marginLeft + maxWidth * wipeProgress, H);
+  ctx.clip();
+
+  ctx.textAlign = 'left';
+  ctx.font = "700 56px 'Plus Jakarta Sans'";
+
+  let y = H - 600;
+  const lineGap = 64;
+  let globalLineIndex = 0;
+
+  for (const rawLine of lines) {
+    const text = rawLine.trimEnd();
+    if (!text.trim()) {
+      y += lineGap * 0.6;
+      continue;
+    }
+    const result = drawWrappedRichParagraph(
+      text,
+      marginLeft,
+      y,
+      maxWidth,
+      lineGap,
+      '#ffffff',
+      '#0088d8',
+      globalLineIndex,
+      t   // waktu untuk highlight
+    );
+    y = result.y;
+    globalLineIndex += result.linesUsed;
+  }
+
+  ctx.restore();
 }
 
-let start,previewing=false;
-function loop(ts){
- if(!previewing)return;
- if(!start)start=ts;
- let t=(ts-start)/1000;
- frame(t);
- requestAnimationFrame(loop);
+// Bangun halaman isi dari textarea
+function rebuildBodyPages() {
+  const allLines = bodyEl.value.split('\n');
+  bodyPages = [];
+  let current = [];
+  for (const raw of allLines) {
+    const trimmed = raw.trimEnd();
+    if (!trimmed.trim()) {
+      if (current.length > 0) {
+        bodyPages.push(current.slice());
+        current = [];
+      }
+    } else {
+      current.push(trimmed);
+    }
+  }
+  if (current.length > 0) bodyPages.push(current);
+  if (bodyPages.length === 0) bodyPages = [[]];
 }
 
-document.getElementById("preview").onclick=()=>{
- computeDur();previewing=true;start=null;requestAnimationFrame(loop);
-};
+// Hitung durasi total
+function recomputeTargetDuration() {
+  rebuildBodyPages();
+  pageDurations = [];
+  for (const page of bodyPages) {
+    const text = page.join(' ').replace(/\s+/g, '');
+    const charCount = text.length;
+    let d = 2.5 + charCount * 0.035;
+    if (d < 3) d = 3;
+    if (d > 10) d = 10;
+    pageDurations.push(d);
+  }
+  const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
+  const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
+  const isiTotal = pageDurations.reduce((a, b) => a + b, 0);
+  targetDuration = titleTotal + 1.0 + isiTotal; // +1s gap
+}
 
+// Gambar frame berdasarkan waktu global
+function drawFrame(globalT) {
+  const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
+  const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
+  const gapEnd = titleTotal + 1.0;
+
+  if (globalT <= titleTotal) {
+    drawTitleScene(globalT);
+    return;
+  }
+  if (globalT <= gapEnd) {
+    drawBaseBackground();
+    return;
+  }
+
+  const tIsi = globalT - gapEnd;
+  let acc = 0;
+  for (let i = 0; i < bodyPages.length; i++) {
+    const d = pageDurations[i];
+    if (tIsi < acc + d) {
+      const tInPage = tIsi - acc;
+      drawBodyPage(i, tInPage, d);
+      return;
+    }
+    acc += d;
+  }
+
+  // setelah semua selesai, tahan di halaman terakhir
+  const lastIndex = bodyPages.length - 1;
+  const lastDur = pageDurations[lastIndex] || 1;
+  drawBodyPage(lastIndex, lastDur - 0.001, lastDur);
+}
+
+// Animasi preview
+let animStart = null;
+function animate(ts) {
+  if (!animating && !recording) return;
+  if (!animStart) animStart = ts;
+  const elapsed = (ts - animStart) / 1000;
+  const t = Math.min(elapsed, targetDuration);
+  drawFrame(t);
+  if (elapsed < targetDuration) {
+    requestAnimationFrame(animate);
+  } else {
+    if (recording) {
+      requestAnimationFrame(animate);
+    } else {
+      animating = false;
+      setStatus('preview selesai');
+    }
+  }
+}
+
+// Preview
+previewBtn.addEventListener('click', () => {
+  recomputeTargetDuration();
+  animating = true;
+  recording = false;
+  animStart = null;
+  setStatus('preview');
+  requestAnimationFrame(animate);
+});
+
+// Render WEBM
+renderBtn.addEventListener('click', () => {
+  recomputeTargetDuration();
+  const stream = canvas.captureStream(30);
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reels_output.webm';
+    a.textContent = 'Download video (WEBM)';
+    a.style.color = '#38bdf8';
+    a.style.textDecoration = 'underline';
+    downloadEl.innerHTML = '';
+    downloadEl.appendChild(a);
+    setStatus('render selesai');
+    recording = false;
+  };
+
+  mediaRecorder.start();
+  recording = true;
+  animating = true;
+  animStart = null;
+  setStatus('rendering...');
+
+  requestAnimationFrame(animate);
+
+  setTimeout(() => {
+    if (recording && mediaRecorder) mediaRecorder.stop();
+  }, targetDuration * 1000 + 500);
+});
+
+// Draw first frame
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => drawFrame(0));
+} else {
+  drawFrame(0);
+}
 </script>
 </body>
 </html>

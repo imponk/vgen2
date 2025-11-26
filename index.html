@@ -5,7 +5,7 @@
   <title>Reels – Fast Light (Upper/Judul/Subjudul + Isi)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- DM Serif Display tetap dari Google, Plus Jakarta Sans bisa diabaikan karena kita pakai font lokal -->
+  <!-- DM Serif Display hanya untuk Judul -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
 
   <style>
@@ -264,8 +264,8 @@ function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlight
     const wInside = ctx.measureText(inside).width;
     const visible = wInside * lineProgress;
     const rectX = x + wBefore - 4;
-    const rectY = y - 40;
-    const rectH = 58;  // lebih tinggi
+    const rectY = y - 42;   // dinaikkan 2px
+    const rectH = 58;       // lebih tinggi
     ctx.fillStyle = highlightBg;
     ctx.fillRect(rectX, rectY, visible + 8, rectH);
   }
@@ -366,6 +366,7 @@ function drawTitleScene(t) {
   ctx.clip();
   ctx.textAlign = 'left';
 
+  // Upper
   if (upper) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     ctx.fillStyle = '#ffffff';
@@ -378,6 +379,7 @@ function drawTitleScene(t) {
     y += 32; // jarak ekstra dari upper ke judul
   }
 
+  // Judul
   if (title) {
     ctx.font = "400 104px 'DM Serif Display'";
     ctx.fillStyle = '#ffffff';
@@ -390,6 +392,7 @@ function drawTitleScene(t) {
     y += 0; // jarak ke subjudul rapat
   }
 
+  // Subjudul
   if (subtitle) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     ctx.fillStyle = '#ffffff';

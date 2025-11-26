@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Reels – Upper / Judul / Subjudul / Isi (Final – Kerning + Wrap + Wipe)</title>
+  <title>Reels – Upper / Judul / Subjudul / Isi (Final – Kerning + Wrap + Wipe + Title FX)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Google Fonts -->
@@ -115,10 +116,11 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Upper + Judul + Subjudul: <b>fade-in bersama</b>, lalu diam.<br>
+      Upper + Judul + Subjudul: sekarang <b>font Upper sama seperti Subjudul</b>,
+      jarak lebih longgar, dan muncul dengan <b>fade + sapu kiri→kanan</b> lalu
+      diam statis ±1 detik sebelum pindah ke isi.<br>
       Isi: dipisah per halaman dengan <b>1 baris kosong</b>, tampil dengan
       <b>fade-in + sapuan dari kiri ke kanan</b> dan durasi otomatis berdasarkan panjang karakter.
-      Plus Jakarta Sans tetap dipakai dengan kerning dijaga.
     </small>
 
     <div class="field">
@@ -185,8 +187,9 @@
     let pageDurations = [];   // durasi per halaman isi (detik)
 
     // Konstanta animasi judul & jeda
-    const TITLE_FADE_IN = 0.8;        // durasi fade-in judul block
-    const TITLE_STATIC_AFTER = 2.2;   // durasi diam setelah fade-in (total judul ~3 detik)
+    const TITLE_FADE_IN = 0.6;        // durasi fade-in judul block
+    const TITLE_WIPE_DUR = 0.8;       // durasi sapuan kiri→kanan judul
+    const TITLE_STATIC_AFTER = 1.0;   // diam statis setelah animasi selesai
     const GAP_AFTER_TITLE = 1.0;      // jeda abu sebelum isi
 
     function setStatus(text) {
@@ -323,7 +326,7 @@
       ctx.fillRect(0, 0, W, H);
     }
 
-    // Slide 1: Upper / Judul / Subjudul dengan fade-in semua, lalu statis
+    // Slide 1: Upper / Judul / Subjudul dengan fade+wipe, lalu diam 1 detik
     function drawSlide1(t, sceneDur) {
       const W = canvas.width;
       const H = canvas.height;
@@ -338,9 +341,11 @@
       const title = titleInput.value.trim();
       const subtitle = subtitleInput.value.trim();
 
-      const totalTitleTime = TITLE_FADE_IN + TITLE_STATIC_AFTER;
+      const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE_DUR);
+      const totalTitleTime = animCore + TITLE_STATIC_AFTER;
       const tLocal = Math.min(t, totalTitleTime);
 
+      // alpha untuk fade-in
       let alpha = 1;
       if (tLocal <= TITLE_FADE_IN) {
         const progress = Math.max(0, Math.min(tLocal / TITLE_FADE_IN, 1));
@@ -350,22 +355,37 @@
         alpha = 1;
       }
 
+      // progress sapuan kiri→kanan
+      let wipeProgress = 1;
+      if (tLocal <= TITLE_WIPE_DUR) {
+        wipeProgress = Math.max(0, Math.min(tLocal / TITLE_WIPE_DUR, 1));
+      } else {
+        wipeProgress = 1;
+      }
+
       const marginLeft = marginLeftBase;
 
+      ctx.save();
       ctx.globalAlpha = alpha;
+
+      // Clip dari kiri → kanan
+      ctx.beginPath();
+      ctx.rect(0, 0, marginLeft + textWidth * wipeProgress, H);
+      ctx.clip();
+
       ctx.textAlign = "left";
 
-      // Upper
+      // Upper (font sama seperti subjudul, jarak lebih lega)
       if (upper) {
-        ctx.font = "700 28px 'Plus Jakarta Sans', system-ui";
+        ctx.font = "700 34px 'Plus Jakarta Sans', system-ui";
         ctx.fillStyle = "#ffffff";
         const linesUpper = wrapText(ctx, upper, textWidth);
-        const lhUpper = 30;
+        const lhUpper = 36;
         for (const line of linesUpper) {
           ctx.fillText(line, marginLeft, y);
           y += lhUpper;
         }
-        y += 10;
+        y += 16; // jarak ekstra ke judul supaya tidak nabrak
       }
 
       // Judul
@@ -378,7 +398,7 @@
           ctx.fillText(line, marginLeft, y);
           y += lhTitle;
         }
-        y += 10;
+        y += 12; // jarak kecil ke subjudul
       }
 
       // Subjudul
@@ -393,6 +413,7 @@
         }
       }
 
+      ctx.restore();
       ctx.globalAlpha = 1;
     }
 
@@ -407,7 +428,7 @@
       const marginRight = 140;
       const maxWidth = W - marginLeft - marginRight;
 
-      // Durasi animasi
+      // Durasi animasi isi
       const fadeInDur = 0.6;
       const wipeDur   = 0.8;   // durasi sapuan kiri→kanan
       const fadeOutDur = 0.5;
@@ -522,14 +543,16 @@
         pageDurations.push(dur);
       }
 
-      const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER;
+      const titleAnimCore = Math.max(TITLE_FADE_IN, TITLE_WIPE_DUR);
+      const titleTotal = titleAnimCore + TITLE_STATIC_AFTER;
       const isiTotal = pageDurations.reduce((a, b) => a + b, 0);
       targetDuration = titleTotal + GAP_AFTER_TITLE + isiTotal;
     }
 
     function drawFrame(globalT) {
       const pagesCount = bodyPages.length;
-      const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER;
+      const titleAnimCore = Math.max(TITLE_FADE_IN, TITLE_WIPE_DUR);
+      const titleTotal = titleAnimCore + TITLE_STATIC_AFTER;
       const gapEnd = titleTotal + GAP_AFTER_TITLE;
 
       if (globalT <= titleTotal) {

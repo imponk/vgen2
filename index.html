@@ -1,15 +1,17 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <title>Reels – Fast Light (Upper/Judul/Subjudul + Isi)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- DM Serif Display tetap dari Google, Plus Jakarta Sans bisa diabaikan karena kita pakai font lokal -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+
   <style>
     * { box-sizing: border-box; }
 
-        @font-face {
+    @font-face {
       font-family: 'PlusJakartaCustom';
       src: url('./fonts/PlusJakartaSans-Bold.woff2') format('woff2');
       font-weight: 700;
@@ -26,7 +28,7 @@
       color: #e5e7eb;
       font-family: 'PlusJakartaCustom', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
-    
+
     .panel {
       background: #020617;
       padding: 16px;
@@ -172,8 +174,9 @@ const TITLE_STATIC   = 1.0;   // hold setelah animasi
 // Isi timing (cepat ringan)
 const BODY_FADE_IN   = 0.3;
 const BODY_WIPE      = 0.4;
-const BODY_FADE_OUT  = 0.5;   // tidak dipakai untuk alpha (fade-out dihapus)
+const BODY_FADE_OUT  = 0.5;   // tidak dipakai (fade-out dihapus)
 const HIGHLIGHT_LINE_DUR = 0.8;  // durasi highlight per baris
+const PAGE_GAP = 0.6; // jeda antar isi
 
 function setStatus(t) {
   statusEl.textContent = 'Status: ' + t;
@@ -262,7 +265,7 @@ function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlight
     const visible = wInside * lineProgress;
     const rectX = x + wBefore - 4;
     const rectY = y - 40;
-    const rectH = 58;  // dinaikkan 2px dari 52
+    const rectH = 58;  // lebih tinggi
     ctx.fillStyle = highlightBg;
     ctx.fillRect(rectX, rectY, visible + 8, rectH);
   }
@@ -327,10 +330,9 @@ function drawTitleScene(t) {
   const marginLeft = 110;
   const marginRight = 140;
   const textWidth = W - marginLeft - marginRight;
-  let y = H - 700;  // dinaikkan sedikit agar Upper lebih tinggi
+  let y = H - 700;  // dinaikkan agar Upper lebih tinggi
 
   const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
-  const totalTitleTime = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
 
   let alpha = 1;
   let wipeProgress = 1;
@@ -365,7 +367,7 @@ function drawTitleScene(t) {
   ctx.textAlign = 'left';
 
   if (upper) {
-    ctx.font = "700 34px 'Plus Jakarta Sans'";
+    ctx.font = "700 34px 'PlusJakartaCustom'";
     ctx.fillStyle = '#ffffff';
     const linesUpper = wrapText(upper, textWidth);
     const lhUpper = 36;
@@ -373,7 +375,7 @@ function drawTitleScene(t) {
       ctx.fillText(line, marginLeft, y);
       y += lhUpper;
     }
-    y += 32; // jarak ekstra lebih besar agar tidak nabrak judul
+    y += 32; // jarak ekstra dari upper ke judul
   }
 
   if (title) {
@@ -385,11 +387,11 @@ function drawTitleScene(t) {
       ctx.fillText(line, marginLeft, y);
       y += lhTitle;
     }
-    y += 0; // jarak ke subjudul dipersempit
+    y += 0; // jarak ke subjudul rapat
   }
 
   if (subtitle) {
-    ctx.font = "700 34px 'Plus Jakarta Sans'";
+    ctx.font = "700 34px 'PlusJakartaCustom'";
     ctx.fillStyle = '#ffffff';
     const linesSub = wrapText(subtitle, textWidth);
     const lhSub = 36;
@@ -433,7 +435,7 @@ function drawBodyPage(pageIndex, t, sceneDur) {
   ctx.clip();
 
   ctx.textAlign = 'left';
-  ctx.font = "700 56px 'Plus Jakarta Sans'";
+  ctx.font = "700 56px 'PlusJakartaCustom'";
 
   let y = H - 600;
   const lineGap = 64;
@@ -483,7 +485,7 @@ function rebuildBodyPages() {
   if (bodyPages.length === 0) bodyPages = [[]];
 }
 
-// Hitung durasi total
+// Hitung durasi total (termasuk jeda antar isi)
 function recomputeTargetDuration() {
   rebuildBodyPages();
   pageDurations = [];
@@ -497,8 +499,12 @@ function recomputeTargetDuration() {
   }
   const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
   const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
-  const isiTotal = pageDurations.reduce((a, b) => a + b, 0);
-  targetDuration = titleTotal + 1.0 + isiTotal; // +1s gap
+
+  const isiDurNoGap = pageDurations.reduce((a, b) => a + b, 0);
+  const gapDur = PAGE_GAP * Math.max(0, bodyPages.length - 1);
+  const isiTotal = isiDurNoGap + gapDur;
+
+  targetDuration = titleTotal + 1.0 + isiTotal; // +1s gap setelah judul
 }
 
 // Gambar frame berdasarkan waktu global
@@ -516,30 +522,28 @@ function drawFrame(globalT) {
     return;
   }
 
-const PAGE_GAP = 0.6; // jeda antar isi
+  const tIsi = globalT - gapEnd;
+  let acc = 0;
 
-const tIsi = globalT - gapEnd;
-let acc = 0;
+  for (let i = 0; i < bodyPages.length; i++) {
+    const d = pageDurations[i];
+    const blockEnd = acc + d;
 
-for (let i = 0; i < bodyPages.length; i++) {
-  const d = pageDurations[i];
-  const blockEnd = acc + d;
+    // fase tampilan isi
+    if (tIsi < blockEnd) {
+      const tInPage = tIsi - acc;
+      drawBodyPage(i, tInPage, d);
+      return;
+    }
 
-  // Jika berada di fase tampilan isi
-  if (tIsi < blockEnd) {
-    const tInPage = tIsi - acc;
-    drawBodyPage(i, tInPage, d);
-    return;
+    // fase jeda setelah halaman ini
+    if (tIsi < blockEnd + PAGE_GAP) {
+      drawBaseBackground();  // tampilan kosong saat jeda
+      return;
+    }
+
+    acc = blockEnd + PAGE_GAP; // lanjut ke halaman berikutnya
   }
-
-  // Jika berada di fase jeda setelah halaman ini
-  if (tIsi < blockEnd + PAGE_GAP) {
-    drawBaseBackground();  // tampilan kosong saat jeda
-    return;
-  }
-
-  acc = blockEnd + PAGE_GAP; // lanjut ke halaman berikutnya
-}
 
   const lastIndex = bodyPages.length - 1;
   const lastDur = pageDurations[lastIndex] || 1;

@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Reels – Upper / Judul / Subjudul / Isi (Blankline Pages)</title>
+  <title>Reels – Upper / Judul / Subjudul / Isi (Tuned)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Google Fonts -->
@@ -115,19 +116,19 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Upper + Judul + Subjudul: anim <b>fade + sapu dari kiri (IN saja)</b>, lalu diam.<br>
+      Upper + Judul + Subjudul: <b>fade-in bersama</b> (tanpa sapu), lalu diam.<br>
       Isi dipisah per halaman dengan <b>1 baris kosong</b> di antara isi 1, 2, 3, dst.<br>
       Di dalam satu isi, gunakan baris biasa untuk kalimat baru, dan [[teks]] untuk highlight.
     </small>
 
     <div class="field">
-      <label>Upper (opsional, ALL CAPS)</label>
-      <textarea id="upperInput" placeholder="Contoh: BREAKING NEWS"></textarea>
+      <label>Upper (opsional, gaya seperti subjudul)</label>
+      <textarea id="upperInput" placeholder="Contoh: Warga Keluhkan Kemacetan di Menganti"></textarea>
     </div>
 
     <div class="field">
       <label>Judul Utama</label>
-      <textarea id="titleInput" placeholder="Judul utama berita"></textarea>
+      <textarea id="titleInput" placeholder="Judul utama berita (paling besar)"></textarea>
     </div>
 
     <div class="field">
@@ -182,12 +183,11 @@
     // halaman isi: array halaman, tiap halaman = array baris
     let bodyPages = [];
 
-    // Konstanta animasi
-    const SWIPE_DISTANCE = 160;        // jarak sapu dari kiri
-    const TITLE_ANIM_IN = 0.8;         // durasi animasi masuk
-    const TITLE_STATIC_AFTER = 2.2;    // durasi diam setelah masuk (total judul ~3 detik)
-    const GAP_AFTER_TITLE = 1.0;       // jeda abu sebelum isi
-    const PER_PAGE_DURATION = 3.0;     // durasi tiap halaman isi
+    // Konstanta animasi judul & isi
+    const TITLE_FADE_IN = 0.8;        // durasi fade-in judul block
+    const TITLE_STATIC_AFTER = 2.2;   // durasi diam setelah fade-in (total judul ~3 detik)
+    const GAP_AFTER_TITLE = 1.0;      // jeda abu sebelum isi
+    const PER_PAGE_DURATION = 3.0;    // durasi tiap halaman isi
 
     function setStatus(text) {
       statusText.textContent = "Status: " + text;
@@ -255,7 +255,7 @@
 
       for (const piece of pieces) {
         let tokenText = piece.text;
-        if (!/\s$/.test(tokenText)) tokenText += " ";
+        if (!/\\s$/.test(tokenText)) tokenText += " ";
         const w = ctx.measureText(tokenText).width;
 
         if (cursorX + w > baseX + maxWidth) {
@@ -288,14 +288,15 @@
       ctx.fillRect(0, 0, W, H);
     }
 
-    // Slide 1: Upper / Judul / Subjudul dengan efek sapu+fade IN, lalu statis
+    // Slide 1: Upper / Judul / Subjudul dengan fade-in semua, lalu statis
     function drawSlide1(t, sceneDur) {
       const W = canvas.width;
       const H = canvas.height;
       drawBaseBackground();
 
-      const marginLeftBase = 90;
-      const marginRight = 120;
+      // tambah margin kiri/kanan sedikit
+      const marginLeftBase = 110;
+      const marginRight = 140;
       const textWidth = W - marginLeftBase - marginRight;
       let y = H - 560; // posisi blok teks (dekat bawah)
 
@@ -303,59 +304,55 @@
       const title = titleInput.value.trim();
       const subtitle = subtitleInput.value.trim();
 
-      const totalTitleTime = TITLE_ANIM_IN + TITLE_STATIC_AFTER;
+      const totalTitleTime = TITLE_FADE_IN + TITLE_STATIC_AFTER;
       const tLocal = Math.min(t, totalTitleTime);
 
       let alpha = 1;
-      let offsetX = 0;
-
-      if (tLocal <= TITLE_ANIM_IN) {
-        const progress = Math.max(0, Math.min(tLocal / TITLE_ANIM_IN, 1));
+      if (tLocal <= TITLE_FADE_IN) {
+        const progress = Math.max(0, Math.min(tLocal / TITLE_FADE_IN, 1));
         const ease = progress * progress * (3 - 2 * progress); // easing halus
-        alpha = ease;                            // 0 → 1
-        offsetX = (1 - ease) * -SWIPE_DISTANCE;  // -SWIPE_DISTANCE → 0
+        alpha = ease; // 0 -> 1
       } else {
         alpha = 1;
-        offsetX = 0;
       }
 
-      const marginLeft = marginLeftBase + offsetX;
+      const marginLeft = marginLeftBase;
 
       ctx.globalAlpha = alpha;
       ctx.textAlign = "left";
 
-      // Upper (opsional)
+      // Upper (gaya seperti subjudul, tidak allcaps, font sedikit lebih kecil)
       if (upper) {
-        ctx.font = "700 32px 'Plus Jakarta Sans', system-ui";
+        ctx.font = "700 28px 'Plus Jakarta Sans', system-ui";
         ctx.fillStyle = "#ffffff";
-        const linesUpper = wrapText(ctx, upper.toUpperCase(), textWidth);
-        const lhUpper = 40;
+        const linesUpper = wrapText(ctx, upper, textWidth);
+        const lhUpper = 30; // mepet, hampir sama dengan font size
         for (const line of linesUpper) {
           ctx.fillText(line, marginLeft, y);
           y += lhUpper;
         }
-        y += 10;
+        y += 10; // jarak kecil ke judul
       }
 
-      // Judul
+      // Judul (paling besar, line-height mepet)
       if (title) {
-        ctx.font = "400 108px 'DM Serif Display', serif";
+        ctx.font = "400 104px 'DM Serif Display', serif";
         ctx.fillStyle = "#ffffff";
         const linesTitle = wrapText(ctx, title, textWidth);
-        const lhTitle = 112;
+        const lhTitle = 104; // mepet sama font size
         for (const line of linesTitle) {
           ctx.fillText(line, marginLeft, y);
           y += lhTitle;
         }
-        y += 14;
+        y += 10; // jarak kecil ke subjudul
       }
 
-      // Subjudul (opsional)
+      // Subjudul
       if (subtitle) {
-        ctx.font = "700 36px 'Plus Jakarta Sans', system-ui";
+        ctx.font = "700 34px 'Plus Jakarta Sans', system-ui";
         ctx.fillStyle = "#ffffff";
         const linesSub = wrapText(ctx, subtitle, textWidth);
-        const lhSub = 44;
+        const lhSub = 36; // mepet
         for (const line of linesSub) {
           ctx.fillText(line, marginLeft, y);
           y += lhSub;
@@ -453,15 +450,14 @@
     function recomputeTargetDuration() {
       rebuildBodyPages();
       const pagesCount = bodyPages.length;
-      const titleTotal = TITLE_ANIM_IN + TITLE_STATIC_AFTER; // judul total
+      const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER; // judul total
       const isiTotal = pagesCount * PER_PAGE_DURATION;
       targetDuration = titleTotal + GAP_AFTER_TITLE + isiTotal;
     }
 
     function drawFrame(globalT) {
       const pagesCount = bodyPages.length;
-      const titleTotal = TITLE_ANIM_IN + TITLE_STATIC_AFTER;
-      const gapStart = titleTotal;
+      const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER;
       const gapEnd = titleTotal + GAP_AFTER_TITLE;
       const perPageDur = PER_PAGE_DURATION;
 

@@ -252,7 +252,7 @@ function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlight
     const visible = wInside * lineProgress;
     const rectX = x + wBefore - 4;
     const rectY = y - 40;
-    const rectH = 54;  // dinaikkan 2px dari 52
+    const rectH = 56;  // dinaikkan 2px dari 52
     ctx.fillStyle = highlightBg;
     ctx.fillRect(rectX, rectY, visible + 8, rectH);
   }
@@ -506,17 +506,30 @@ function drawFrame(globalT) {
     return;
   }
 
-  const tIsi = globalT - gapEnd;
-  let acc = 0;
-  for (let i = 0; i < bodyPages.length; i++) {
-    const d = pageDurations[i];
-    if (tIsi < acc + d) {
-      const tInPage = tIsi - acc;
-      drawBodyPage(i, tInPage, d);
-      return;
-    }
-    acc += d;
+const PAGE_GAP = 0.6; // jeda antar isi
+
+const tIsi = globalT - gapEnd;
+let acc = 0;
+
+for (let i = 0; i < bodyPages.length; i++) {
+  const d = pageDurations[i];
+  const blockEnd = acc + d;
+
+  // Jika berada di fase tampilan isi
+  if (tIsi < blockEnd) {
+    const tInPage = tIsi - acc;
+    drawBodyPage(i, tInPage, d);
+    return;
   }
+
+  // Jika berada di fase jeda setelah halaman ini
+  if (tIsi < blockEnd + PAGE_GAP) {
+    drawBaseBackground();  // tampilan kosong saat jeda
+    return;
+  }
+
+  acc = blockEnd + PAGE_GAP; // lanjut ke halaman berikutnya
+}
 
   const lastIndex = bodyPages.length - 1;
   const lastDur = pageDurations[lastIndex] || 1;

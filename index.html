@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Reels – Upper / Judul / Subjudul / Isi (Tuned)</title>
+  <title>Reels – Upper / Judul / Subjudul / Isi (Kerning Fix)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Google Fonts -->
@@ -116,9 +115,9 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Upper + Judul + Subjudul: <b>fade-in bersama</b> (tanpa sapu), lalu diam.<br>
+      Upper + Judul + Subjudul: <b>fade-in bersama</b>, lalu diam.<br>
       Isi dipisah per halaman dengan <b>1 baris kosong</b> di antara isi 1, 2, 3, dst.<br>
-      Di dalam satu isi, gunakan baris biasa untuk kalimat baru, dan [[teks]] untuk highlight.
+      Kerning isi diperbaiki: 1 baris = 1 fillText, Plus Jakarta Sans tetap dipakai.
     </small>
 
     <div class="field">
@@ -193,7 +192,7 @@
       statusText.textContent = "Status: " + text;
     }
 
-    // --- helper: wrap text biasa ---
+    // --- helper: wrap text sederhana (dipakai utk judul/subjudul/upper) ---
     function wrapText(ctx, text, maxWidth) {
       const words = text.split(" ");
       const lines = [];
@@ -212,70 +211,55 @@
       return lines;
     }
 
-    // --- helper: parsing [[highlight]] ---
-    function parseHighlightedText(str) {
-      const segments = [];
-      let idx = 0;
-      while (true) {
-        const start = str.indexOf("[[", idx);
-        if (start === -1) {
-          const rest = str.slice(idx);
-          if (rest) segments.push({ text: rest, highlight: false });
-          break;
-        }
-        if (start > idx) {
-          segments.push({ text: str.slice(idx, start), highlight: false });
-        }
-        const end = str.indexOf("]]", start + 2);
-        if (end === -1) {
-          segments.push({ text: str.slice(start), highlight: false });
-          break;
-        }
-        const inner = str.slice(start + 2, end);
-        segments.push({ text: inner, highlight: true });
-        idx = end + 2;
-      }
-      return segments;
-    }
-
-    // gambar satu baris teks dengan [[highlight]]
+    // --- helper: gambar 1 baris dengan [[highlight]] TANPA merusak kerning ---
     function drawRichLine(ctx, text, x, y, maxWidth, normalColor, highlightColor, highlightBg) {
-      const baseX = x;
-      let cursorX = baseX;
-      const segments = parseHighlightedText(text);
+      // 1) Bangun string "bersih" tanpa [[ ]] tapi simpan range highlight
+      let clean = "";
+      const ranges = []; // { start, end }
+      let i = 0;
+      let inHighlight = false;
+      let startIndex = 0;
 
-      const pieces = [];
-      for (const seg of segments) {
-        const split = seg.text.split(/(\s+)/);
-        for (const token of split) {
-          if (token === "") continue;
-          pieces.push({ text: token, highlight: seg.highlight });
-        }
-      }
-
-      for (const piece of pieces) {
-        let tokenText = piece.text;
-        if (!/\\s$/.test(tokenText)) tokenText += " ";
-        const w = ctx.measureText(tokenText).width;
-
-        if (cursorX + w > baseX + maxWidth) {
-          // kalau kepanjangan, pindah ke bawah (simple wrap)
-          y += 60; // tinggi baris isi
-          cursorX = baseX;
-        }
-
-        if (piece.highlight) {
-          const rectHeight = 48;
-          const rectY = y - rectHeight * 0.8;
-          ctx.fillStyle = highlightBg;
-          ctx.fillRect(cursorX - 4, rectY, w + 8, rectHeight);
-          ctx.fillStyle = highlightColor;
+      while (i < text.length) {
+        if (!inHighlight && text.startsWith("[[", i)) {
+          inHighlight = true;
+          startIndex = clean.length;
+          i += 2;
+        } else if (inHighlight && text.startsWith("]]", i)) {
+          inHighlight = false;
+          const endIndex = clean.length;
+          ranges.push({ start: startIndex, end: endIndex });
+          i += 2;
         } else {
-          ctx.fillStyle = normalColor;
+          clean += text[i];
+          i++;
         }
-        ctx.fillText(tokenText, cursorX, y);
-        cursorX += w;
       }
+      if (inHighlight) {
+        ranges.push({ start: startIndex, end: clean.length });
+      }
+
+      ctx.textAlign = "left";
+
+      // 2) Gambar background highlight berdasarkan substring
+      for (const r of ranges) {
+        const before = clean.slice(0, r.start);
+        const inside = clean.slice(r.start, r.end);
+
+        const wBefore = ctx.measureText(before).width;
+        const wInside = ctx.measureText(inside).width;
+
+        const rectX = x + wBefore - 4;
+        const rectY = y - 40; // kira-kira tinggi baris 56px
+        const rectH = 52;
+
+        ctx.fillStyle = highlightBg;
+        ctx.fillRect(rectX, rectY, wInside + 8, rectH);
+      }
+
+      // 3) Gambar teks bersih sekali saja (kerning utuh)
+      ctx.fillStyle = normalColor;
+      ctx.fillText(clean, x, y);
 
       return y;
     }
@@ -294,7 +278,7 @@
       const H = canvas.height;
       drawBaseBackground();
 
-      // tambah margin kiri/kanan sedikit
+      // sedikit lebih ke tengah kiri-kanan
       const marginLeftBase = 110;
       const marginRight = 140;
       const textWidth = W - marginLeftBase - marginRight;
@@ -321,30 +305,30 @@
       ctx.globalAlpha = alpha;
       ctx.textAlign = "left";
 
-      // Upper (gaya seperti subjudul, tidak allcaps, font sedikit lebih kecil)
+      // Upper (mirip subjudul, sedikit lebih kecil)
       if (upper) {
         ctx.font = "700 28px 'Plus Jakarta Sans', system-ui";
         ctx.fillStyle = "#ffffff";
         const linesUpper = wrapText(ctx, upper, textWidth);
-        const lhUpper = 30; // mepet, hampir sama dengan font size
+        const lhUpper = 30;
         for (const line of linesUpper) {
           ctx.fillText(line, marginLeft, y);
           y += lhUpper;
         }
-        y += 10; // jarak kecil ke judul
+        y += 10;
       }
 
-      // Judul (paling besar, line-height mepet)
+      // Judul
       if (title) {
         ctx.font = "400 104px 'DM Serif Display', serif";
         ctx.fillStyle = "#ffffff";
         const linesTitle = wrapText(ctx, title, textWidth);
-        const lhTitle = 104; // mepet sama font size
+        const lhTitle = 104;
         for (const line of linesTitle) {
           ctx.fillText(line, marginLeft, y);
           y += lhTitle;
         }
-        y += 10; // jarak kecil ke subjudul
+        y += 10;
       }
 
       // Subjudul
@@ -352,7 +336,7 @@
         ctx.font = "700 34px 'Plus Jakarta Sans', system-ui";
         ctx.fillStyle = "#ffffff";
         const linesSub = wrapText(ctx, subtitle, textWidth);
-        const lhSub = 36; // mepet
+        const lhSub = 36;
         for (const line of linesSub) {
           ctx.fillText(line, marginLeft, y);
           y += lhSub;
@@ -369,8 +353,8 @@
       drawBaseBackground();
 
       const lines = bodyPages[pageIndex] || [];
-      const marginLeft = 90;
-      const marginRight = 120;
+      const marginLeft = 110;
+      const marginRight = 140;
       const maxWidth = W - marginLeft - marginRight;
 
       const fadeInDur = 0.5;
@@ -385,17 +369,19 @@
       ctx.globalAlpha = alpha;
 
       ctx.textAlign = "left";
-      ctx.font = "700 58px 'Plus Jakarta Sans', system-ui";
+      ctx.font = "700 56px 'Plus Jakarta Sans', system-ui";
 
-      let y = H - 600; // start blok isi
-      const lineGap = 80; // jarak antar baris isi di halaman
+      let y = H - 600;      // posisi awal isi
+      const lineGap = 64;   // dekat dengan font size (56px)
 
       for (const rawLine of lines) {
-        const text = rawLine.trim();
-        if (!text) {
+        const text = rawLine.trimEnd();
+        if (!text.trim()) {
+          // baris kosong di dalam satu isi = jarak kecil tambahan
           y += lineGap * 0.6;
           continue;
         }
+
         y = drawRichLine(
           ctx,
           text,

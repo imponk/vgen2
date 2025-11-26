@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Reels – Upper / Judul / Subjudul / Isi (Kerning Fix)</title>
+  <title>Reels – Upper / Judul / Subjudul / Isi (Kerning + Wrap)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Google Fonts -->
@@ -117,7 +117,7 @@
     <small>
       Upper + Judul + Subjudul: <b>fade-in bersama</b>, lalu diam.<br>
       Isi dipisah per halaman dengan <b>1 baris kosong</b> di antara isi 1, 2, 3, dst.<br>
-      Kerning isi diperbaiki: 1 baris = 1 fillText, Plus Jakarta Sans tetap dipakai.
+      Kerning isi dijaga (1 baris canvas = 1 fillText) <b>dan sekarang sudah wrap ke frame</b>.
     </small>
 
     <div class="field">
@@ -192,7 +192,7 @@
       statusText.textContent = "Status: " + text;
     }
 
-    // --- helper: wrap text sederhana (dipakai utk judul/subjudul/upper) ---
+    // --- helper: wrap text sederhana (judul/subjudul/upper) ---
     function wrapText(ctx, text, maxWidth) {
       const words = text.split(" ");
       const lines = [];
@@ -211,56 +211,106 @@
       return lines;
     }
 
-    // --- helper: gambar 1 baris dengan [[highlight]] TANPA merusak kerning ---
-    function drawRichLine(ctx, text, x, y, maxWidth, normalColor, highlightColor, highlightBg) {
-      // 1) Bangun string "bersih" tanpa [[ ]] tapi simpan range highlight
-      let clean = "";
-      const ranges = []; // { start, end }
-      let i = 0;
+    // Tokenize teks dengan [[highlight]] -> array token {text, highlight}
+    function tokenizeHighlighted(text) {
+      let tokens = [];
+      let current = "";
       let inHighlight = false;
-      let startIndex = 0;
+      let i = 0;
+
+      function pushCurrent() {
+        if (current.length > 0) {
+          tokens.push({ text: current, highlight: inHighlight });
+          current = "";
+        }
+      }
 
       while (i < text.length) {
         if (!inHighlight && text.startsWith("[[", i)) {
+          pushCurrent();
           inHighlight = true;
-          startIndex = clean.length;
           i += 2;
         } else if (inHighlight && text.startsWith("]]", i)) {
+          pushCurrent();
           inHighlight = false;
-          const endIndex = clean.length;
-          ranges.push({ start: startIndex, end: endIndex });
           i += 2;
         } else {
-          clean += text[i];
+          const ch = text[i];
+          current += ch;
+          if (ch === " ") {
+            pushCurrent();
+          }
           i++;
         }
       }
-      if (inHighlight) {
-        ranges.push({ start: startIndex, end: clean.length });
+      pushCurrent();
+      return tokens;
+    }
+
+    // Gambar satu "visual line" dari kumpulan token, dengan highlight, kerning utuh
+    function drawLineFromTokens(ctx, tokens, x, y, normalColor, highlightColor, highlightBg) {
+      let clean = "";
+      for (const tok of tokens) {
+        clean += tok.text;
       }
 
-      ctx.textAlign = "left";
+      // highlight rects
+      let index = 0;
+      for (const tok of tokens) {
+        const text = tok.text;
+        const len = text.length;
+        if (tok.highlight && text.trim().length > 0) {
+          const before = clean.slice(0, index);
+          const inside = clean.slice(index, index + len);
 
-      // 2) Gambar background highlight berdasarkan substring
-      for (const r of ranges) {
-        const before = clean.slice(0, r.start);
-        const inside = clean.slice(r.start, r.end);
+          const wBefore = ctx.measureText(before).width;
+          const wInside = ctx.measureText(inside).width;
 
-        const wBefore = ctx.measureText(before).width;
-        const wInside = ctx.measureText(inside).width;
+          const rectX = x + wBefore - 4;
+          const rectY = y - 40;
+          const rectH = 52;
 
-        const rectX = x + wBefore - 4;
-        const rectY = y - 40; // kira-kira tinggi baris 56px
-        const rectH = 52;
-
-        ctx.fillStyle = highlightBg;
-        ctx.fillRect(rectX, rectY, wInside + 8, rectH);
+          ctx.fillStyle = highlightBg;
+          ctx.fillRect(rectX, rectY, wInside + 8, rectH);
+        }
+        index += len;
       }
 
-      // 3) Gambar teks bersih sekali saja (kerning utuh)
+      // teks sekali saja
       ctx.fillStyle = normalColor;
       ctx.fillText(clean, x, y);
+    }
 
+    // Gambar paragraf isi: wrap ke beberapa visual line, kerning aman
+    function drawWrappedRichParagraph(ctx, text, x, yStart, maxWidth, lineGap, normalColor, highlightColor, highlightBg) {
+      const tokens = tokenizeHighlighted(text);
+      let lines = [];
+      let currentTokens = [];
+      let currentText = "";
+
+      for (const tok of tokens) {
+        const proposedText = currentText + tok.text;
+        const w = ctx.measureText(proposedText).width;
+
+        if (currentText && w > maxWidth) {
+          // commit line lama
+          lines.push(currentTokens);
+          currentTokens = [tok];
+          currentText = tok.text;
+        } else {
+          currentTokens.push(tok);
+          currentText = proposedText;
+        }
+      }
+      if (currentTokens.length > 0) {
+        lines.push(currentTokens);
+      }
+
+      let y = yStart;
+      for (const lineTokens of lines) {
+        drawLineFromTokens(ctx, lineTokens, x, y, normalColor, highlightColor, highlightBg);
+        y += lineGap;
+      }
       return y;
     }
 
@@ -278,11 +328,10 @@
       const H = canvas.height;
       drawBaseBackground();
 
-      // sedikit lebih ke tengah kiri-kanan
       const marginLeftBase = 110;
       const marginRight = 140;
       const textWidth = W - marginLeftBase - marginRight;
-      let y = H - 560; // posisi blok teks (dekat bawah)
+      let y = H - 560;
 
       const upper = upperInput.value.trim();
       const title = titleInput.value.trim();
@@ -294,8 +343,8 @@
       let alpha = 1;
       if (tLocal <= TITLE_FADE_IN) {
         const progress = Math.max(0, Math.min(tLocal / TITLE_FADE_IN, 1));
-        const ease = progress * progress * (3 - 2 * progress); // easing halus
-        alpha = ease; // 0 -> 1
+        const ease = progress * progress * (3 - 2 * progress);
+        alpha = ease;
       } else {
         alpha = 1;
       }
@@ -305,7 +354,7 @@
       ctx.globalAlpha = alpha;
       ctx.textAlign = "left";
 
-      // Upper (mirip subjudul, sedikit lebih kecil)
+      // Upper
       if (upper) {
         ctx.font = "700 28px 'Plus Jakarta Sans', system-ui";
         ctx.fillStyle = "#ffffff";
@@ -346,7 +395,7 @@
       ctx.globalAlpha = 1;
     }
 
-    // Slide isi per halaman (beberapa baris)
+    // Slide isi per halaman (beberapa baris, bisa wrap)
     function drawBodyPage(pageIndex, t, sceneDur) {
       const W = canvas.width;
       const H = canvas.height;
@@ -371,28 +420,26 @@
       ctx.textAlign = "left";
       ctx.font = "700 56px 'Plus Jakarta Sans', system-ui";
 
-      let y = H - 600;      // posisi awal isi
-      const lineGap = 64;   // dekat dengan font size (56px)
+      let y = H - 600;
+      const lineGap = 64;
 
       for (const rawLine of lines) {
         const text = rawLine.trimEnd();
         if (!text.trim()) {
-          // baris kosong di dalam satu isi = jarak kecil tambahan
           y += lineGap * 0.6;
           continue;
         }
-
-        y = drawRichLine(
+        y = drawWrappedRichParagraph(
           ctx,
           text,
           marginLeft,
           y,
           maxWidth,
+          lineGap,
           "#ffffff",
           "#ffffff",
           "#0088d8"
         );
-        y += lineGap;
       }
 
       ctx.globalAlpha = 1;
@@ -411,7 +458,6 @@
         const trimmed = raw.trimEnd();
 
         if (trimmed.trim() === "") {
-          // baris kosong: akhiri halaman jika ada isi
           if (currentPage.length > 0) {
             bodyPages.push(currentPage.slice());
             currentPage = [];
@@ -421,12 +467,10 @@
         }
       }
 
-      // push halaman terakhir jika ada
       if (currentPage.length > 0) {
         bodyPages.push(currentPage);
       }
 
-      // kalau semua kosong, buat satu halaman kosong agar tidak error
       if (bodyPages.length === 0) {
         bodyPages = [[]];
       }
@@ -436,7 +480,7 @@
     function recomputeTargetDuration() {
       rebuildBodyPages();
       const pagesCount = bodyPages.length;
-      const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER; // judul total
+      const titleTotal = TITLE_FADE_IN + TITLE_STATIC_AFTER;
       const isiTotal = pagesCount * PER_PAGE_DURATION;
       targetDuration = titleTotal + GAP_AFTER_TITLE + isiTotal;
     }
@@ -448,13 +492,10 @@
       const perPageDur = PER_PAGE_DURATION;
 
       if (globalT <= titleTotal) {
-        // fase judul
         drawSlide1(globalT, titleTotal);
       } else if (globalT <= gapEnd) {
-        // jeda abu
         drawBaseBackground();
       } else {
-        // fase isi
         const tIsi = globalT - gapEnd;
         const totalIsiDur = pagesCount * perPageDur;
         const tClamped = Math.min(tIsi, totalIsiDur - 0.0001);

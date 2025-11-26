@@ -317,7 +317,7 @@ function drawTitleScene(t) {
   const marginLeft = 110;
   const marginRight = 140;
   const textWidth = W - marginLeft - marginRight;
-  let y = H - 600;  // dinaikkan sedikit agar Upper lebih tinggi
+  let y = H - 700;  // dinaikkan sedikit agar Upper lebih tinggi
 
   const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
   const totalTitleTime = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
@@ -375,7 +375,7 @@ function drawTitleScene(t) {
       ctx.fillText(line, marginLeft, y);
       y += lhTitle;
     }
-    y += 4; // jarak ke subjudul dipersempit
+    y += 0; // jarak ke subjudul dipersempit
   }
 
   if (subtitle) {

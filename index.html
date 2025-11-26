@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Reels Template – Upper / Judul / Subjudul / Isi Otomatis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      display: flex;
+      gap: 16px;
+    }
+    .panel {
+      background: #020617;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .left {
+      width: 340px;
+      flex-shrink: 0;
+    }
+    .right {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    h2 {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+    }
+    small {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+    .field {
+      margin-top: 12px;
+    }
+    label {
+      font-size: 13px;
+      display: block;
+      margin-bottom: 4px;
+      color: #9ca3af;
+    }
+    textarea {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px 10px;
+      font-size: 14px;
+      outline: none;
+      resize: vertical;
+      min-height: 50px;
+    }
+    textarea:focus {
+      border-color: #2563eb;
+    }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-secondary { background: #111827; color: #e5e7eb; }
+    .btn-danger { background: #b91c1c; color: #fee2e2; }
+    button:disabled { opacity: 0.6; cursor: default; }
+
+    .status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .download-link { margin-top: 8px; font-size: 13px; }
+
+    canvas {
+      background: #9a9a9a;
+      border-radius: 18px;
+      border: 1px solid #4b5563;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.65);
+      max-height: 92vh;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel left">
+    <h2>Reels – Upper / Judul / Subjudul / Isi Otomatis</h2>
+    <small>
+      Upper + Judul + Subjudul: muncul dulu 1 detik, lalu 4 detik fade + sapu kanan.<br>
+      Setelah jeda 1 detik, isi tampil per halaman (durasi otomatis tergantung panjang berita).
+    </small>
+
+    <div class="field">
+      <label>Upper (opsional, ALL CAPS)</label>
+      <textarea id="upperInput" placeholder="Contoh: INI ADALAH UPPER"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Judul Utama</label>
+      <textarea id="titleInput" placeholder="Judul utama berita"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Subjudul (opsional)</label>
+      <textarea id="subtitleInput" placeholder="Subjudul / kalimat pendukung"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Isi Berita (banyak baris)</label>
+      <textarea
+        id="bodyInput"
+        placeholder="Isi berita. Satu poin per baris.
+Contoh:
+Ini poin pertama.
+Ini poin kedua [[dengan highlight]].
+Ini poin ketiga..."
+      ></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" id="previewBtn">Preview</button>
+      <button class="btn-primary" id="recordBtn">Render Video</button>
+      <button class="btn-danger" id="stopBtn" disabled>Stop</button>
+    </div>
+
+    <div class="status" id="statusText">Status: idle</div>
+    <div class="download-link" id="downloadContainer"></div>
+  </div>
+
+  <div class="panel right">
+    <canvas id="reelCanvas" width="1080" height="1920"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("reelCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const upperInput = document.getElementById("upperInput");
+    const titleInput = document.getElementById("titleInput");
+    const subtitleInput = document.getElementById("subtitleInput");
+    const bodyInput = document.getElementById("bodyInput");
+
+    const previewBtn = document.getElementById("previewBtn");
+    const recordBtn = document.getElementById("recordBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const statusText = document.getElementById("statusText");
+    const downloadContainer = document.getElementById("downloadContainer");
+
+    let animating = false;
+    let recording = false;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let startTime = null;
+    let targetDuration = 12;
+
+    let bodyPages = [];
+    const MAX_ITEMS_PER_PAGE = 4;      // 4 poin per halaman
+    const SWIPE_DISTANCE = 160;        // px geser ke kanan
+    const STATIC_HOLD = 1.0;           // 1 detik diam (judul)
+    const FADE_SWIPE_DURATION = 4.0;   // 4 detik fade + sapu
+    const GAP_AFTER_TITLE = 1.0;       // 1 detik jeda abu
+    const PER_PAGE_DURATION = 3.0;     // 3 detik per halaman isi
+
+    function setStatus(text) {
+      statusText.textContent = "Status: " + text;
+    }
+
+    // --- helper: wrap text biasa ---
+    function wrapText(ctx, text, maxWidth) {
+      const words = text.split(" ");
+      const lines = [];
+      let line = words[0] || "";
+
+      for (let i = 1; i < words.length; i++) {
+        const testLine = line + " " + words[i];
+        if (ctx.measureText(testLine).width > maxWidth) {
+          lines.push(line);
+          line = words[i];
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line);
+      return lines;
+    }
+
+    // --- helper: parsing [[highlight]] ---
+    function parseHighlightedText(str) {
+      const segments = [];
+      let idx = 0;
+      while (true) {
+        const start = str.indexOf("[[", idx);
+        if (start === -1) {
+          const rest = str.slice(idx);
+          if (rest) segments.push({ text: rest, highlight: false });
+          break;
+        }
+        if (start > idx) {
+          segments.push({ text: str.slice(idx, start), highlight: false });
+        }
+        const end = str.indexOf("]]", start + 2);
+        if (end === -1) {
+          segments.push({ text: str.slice(start), highlight: false });
+          break;
+        }
+        const inner = str.slice(start + 2, end);
+        segments.push({ text: inner, highlight: true });
+        idx = end + 2;
+      }
+      return segments;
+    }
+
+    // gambar satu baris teks dengan [[highlight]]
+    function drawRichLine(ctx, text, x, y, maxWidth, normalColor, highlightColor, highlightBg) {
+      const baseX = x;
+      let cursorX = baseX;
+      const segments = parseHighlightedText(text);
+
+      const pieces = [];
+      for (const seg of segments) {
+        const split = seg.text.split(/(\s+)/);
+        for (const token of split) {
+          if (token === "") continue;
+          pieces.push({ text: token, highlight: seg.highlight });
+        }
+      }
+
+      for (const piece of pieces) {
+        let tokenText = piece.text;
+        if (!/\s$/.test(tokenText)) tokenText += " ";
+        const w = ctx.measureText(tokenText).width;
+
+        if (cursorX + w > baseX + maxWidth) {
+          // kalau kepanjangan, pindah ke bawah (simple wrap)
+          y += 60; // tinggi baris isi
+          cursorX = baseX;
+        }
+
+        if (piece.highlight) {
+          const rectHeight = 48;
+          const rectY = y - rectHeight * 0.8;
+          ctx.fillStyle = highlightBg;
+          ctx.fillRect(cursorX - 4, rectY, w + 8, rectHeight);
+          ctx.fillStyle = highlightColor;
+        } else {
+          ctx.fillStyle = normalColor;
+        }
+        ctx.fillText(tokenText, cursorX, y);
+        cursorX += w;
+      }
+
+      return y;
+    }
+
+    // background polos abu
+    function drawBaseBackground() {
+      const W = canvas.width;
+      const H = canvas.height;
+      ctx.fillStyle = "#9a9a9a";
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Slide 1: Upper / Judul / Subjudul dgn efek 1 detik statis + 4 detik fade+sapu kanan
+    function drawSlide1(t, sceneDur) {
+      const W = canvas.width;
+      const H = canvas.height;
+      drawBaseBackground();
+
+      const marginLeftBase = 90;
+      const marginRight = 120;
+      const textWidth = W - marginLeftBase - marginRight;
+      let y = H - 560; // posisi blok teks (dekat bawah)
+
+      const upper = upperInput.value.trim();
+      const title = titleInput.value.trim();
+      const subtitle = subtitleInput.value.trim();
+
+      const totalAnim = STATIC_HOLD + FADE_SWIPE_DURATION; // 5 detik
+      const tLocal = Math.min(t, totalAnim);
+
+      let alpha = 1;
+      let offsetX = 0;
+
+      if (tLocal <= STATIC_HOLD) {
+        // fase diam: langsung tampil, tanpa efek
+        alpha = 1;
+        offsetX = 0;
+      } else {
+        // fase fade + sapu
+        const tFade = tLocal - STATIC_HOLD;            // 0 → 4
+        let progress = tFade / FADE_SWIPE_DURATION;    // 0 → 1
+        progress = Math.max(0, Math.min(progress, 1));
+        const ease = progress * progress * (3 - 2 * progress); // easing halus
+
+        alpha = 1 - ease;                 // 1 → 0
+        offsetX = ease * SWIPE_DISTANCE;  // 0 → +SWIPE_DISTANCE
+      }
+
+      const marginLeft = marginLeftBase + offsetX;
+
+      ctx.globalAlpha = alpha;
+      ctx.textAlign = "left";
+
+      // Upper (opsional)
+      if (upper) {
+        ctx.font = "700 32px 'Plus Jakarta Sans', system-ui";
+        ctx.fillStyle = "#ffffff";
+        const linesUpper = wrapText(ctx, upper.toUpperCase(), textWidth);
+        const lhUpper = 40;
+        for (const line of linesUpper) {
+          ctx.fillText(line, marginLeft, y);
+          y += lhUpper;
+        }
+        y += 10;
+      }
+
+      // Judul
+      if (title) {
+        ctx.font = "400 108px 'DM Serif Display', serif";
+        ctx.fillStyle = "#ffffff";
+        const linesTitle = wrapText(ctx, title, textWidth);
+        const lhTitle = 112;
+        for (const line of linesTitle) {
+          ctx.fillText(line, marginLeft, y);
+          y += lhTitle;
+        }
+        y += 14;
+      }
+
+      // Subjudul (opsional)
+      if (subtitle) {
+        ctx.font = "700 36px 'Plus Jakarta Sans', system-ui";
+        ctx.fillStyle = "#ffffff";
+        const linesSub = wrapText(ctx, subtitle, textWidth);
+        const lhSub = 44;
+        for (const line of linesSub) {
+          ctx.fillText(line, marginLeft, y);
+          y += lhSub;
+        }
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
+    // Slide isi per halaman (beberapa poin)
+    function drawBodyPage(pageIndex, t, sceneDur) {
+      const W = canvas.width;
+      const H = canvas.height;
+      drawBaseBackground();
+
+      const lines = bodyPages[pageIndex] || [];
+      const marginLeft = 90;
+      const marginRight = 120;
+      const maxWidth = W - marginLeft - marginRight;
+
+      const fadeInDur = 0.5;
+      const fadeOutDur = 0.5;
+      let alpha = 1;
+      if (t < fadeInDur) {
+        alpha = t / fadeInDur;
+      } else if (sceneDur - t < fadeOutDur) {
+        alpha = (sceneDur - t) / fadeOutDur;
+      }
+      alpha = Math.max(0, Math.min(1, alpha));
+      ctx.globalAlpha = alpha;
+
+      ctx.textAlign = "left";
+      ctx.font = "700 58px 'Plus Jakarta Sans', system-ui";
+
+      let y = H - 600; // start blok isi
+      const lineGap = 80; // jarak antar poin
+
+      for (const rawLine of lines) {
+        const text = rawLine.trim();
+        if (!text) continue;
+        y = drawRichLine(
+          ctx,
+          text,
+          marginLeft,
+          y,
+          maxWidth,
+          "#ffffff",
+          "#ffffff",
+          "#0088d8"
+        );
+        y += lineGap;
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
+    // bangun halaman isi (pagination) dari textarea
+    function rebuildBodyPages() {
+      const body = bodyInput.value;
+      const rawLines = body
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+
+      bodyPages = [];
+      for (let i = 0; i < rawLines.length; i += MAX_ITEMS_PER_PAGE) {
+        bodyPages.push(rawLines.slice(i, i + MAX_ITEMS_PER_PAGE));
+      }
+      if (bodyPages.length === 0) {
+        bodyPages = [[]]; // minimal 1 halaman kosong
+      }
+    }
+
+    // hitung total durasi berdasarkan jumlah halaman isi
+    function recomputeTargetDuration() {
+      rebuildBodyPages();
+      const pagesCount = bodyPages.length;
+      const titleTotal = STATIC_HOLD + FADE_SWIPE_DURATION; // 5 detik
+      const isiTotal = pagesCount * PER_PAGE_DURATION;      // otomatis panjang
+      targetDuration = titleTotal + GAP_AFTER_TITLE + isiTotal;
+    }
+
+    function drawFrame(globalT) {
+      const pagesCount = bodyPages.length;
+      const titleTotal = STATIC_HOLD + FADE_SWIPE_DURATION; // 5
+      const gapStart = titleTotal;
+      const gapEnd = titleTotal + GAP_AFTER_TITLE;          // 6 detik
+      const perPageDur = PER_PAGE_DURATION;
+
+      if (globalT <= titleTotal) {
+        // fase judul (0–5 detik)
+        drawSlide1(globalT, titleTotal);
+      } else if (globalT <= gapEnd) {
+        // jeda 1 detik: layar abu polos
+        drawBaseBackground();
+      } else {
+        // fase isi, otomatis dibagi per halaman
+        const tIsi = globalT - gapEnd; // mulai dari 0
+        const totalIsiDur = pagesCount * perPageDur;
+        const tClamped = Math.min(tIsi, totalIsiDur - 0.0001);
+
+        const pageIndex = Math.min(
+          pagesCount - 1,
+          Math.floor(tClamped / perPageDur)
+        );
+        const tInPage = tClamped - pageIndex * perPageDur;
+
+        drawBodyPage(pageIndex, tInPage, perPageDur);
+      }
+    }
+
+    function startPreview() {
+      if (animating) return;
+      recomputeTargetDuration();       // durasi otomatis
+      animating = true;
+      startTime = performance.now();
+      setStatus("preview");
+      requestAnimationFrame(animate);
+    }
+
+    function animate(timestamp) {
+      if (!animating && !recording) return;
+      if (!startTime) startTime = timestamp;
+      const elapsed = (timestamp - startTime) / 1000;
+      const t = Math.min(elapsed, targetDuration);
+
+      drawFrame(t);
+
+      if (elapsed < targetDuration) {
+        requestAnimationFrame(animate);
+      } else {
+        if (recording) {
+          requestAnimationFrame(animate);
+        } else {
+          animating = false;
+          setStatus("preview selesai");
+        }
+      }
+    }
+
+    function startRecording() {
+      if (recording) return;
+      recomputeTargetDuration();       // durasi otomatis
+
+      const stream = canvas.captureStream(30);
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "video/webm;codecs=vp9",
+      });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "reels_output.webm";
+        a.textContent = "Download video (WEBM)";
+        a.style.color = "#38bdf8";
+        a.style.textDecoration = "underline";
+
+        downloadContainer.innerHTML = "";
+        downloadContainer.appendChild(a);
+
+        setStatus("render selesai");
+        recording = false;
+        stopBtn.disabled = true;
+        recordBtn.disabled = false;
+        previewBtn.disabled = false;
+      };
+
+      mediaRecorder.start();
+      recording = true;
+      setStatus("recording...");
+
+      animating = true;
+      startTime = performance.now();
+      requestAnimationFrame(animate);
+
+      setTimeout(() => {
+        if (mediaRecorder && recording) {
+          mediaRecorder.stop();
+        }
+      }, targetDuration * 1000);
+
+      recordBtn.disabled = true;
+      previewBtn.disabled = true;
+      stopBtn.disabled = false;
+    }
+
+    function stopAll() {
+      animating = false;
+      if (mediaRecorder && recording) {
+        mediaRecorder.stop();
+      }
+      recording = false;
+      stopBtn.disabled = true;
+      recordBtn.disabled = false;
+      previewBtn.disabled = false;
+      setStatus("dihentikan manual");
+    }
+
+    previewBtn.addEventListener("click", startPreview);
+    recordBtn.addEventListener("click", startRecording);
+    stopBtn.addEventListener("click", stopAll);
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => drawFrame(0));
+    } else {
+      drawFrame(0);
+    }
+  </script>
+</body>
+</html>

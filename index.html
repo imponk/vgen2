@@ -468,7 +468,29 @@ function drawBodyPage(pageIndex, t, sceneDur) {
   ctx.restore();
 }
 
-// Bangun halaman isi dari textarea
+// =========================
+// ANTI-ORPHAN KHUSUS ISI
+// =========================
+function fixOrphansInBodyLine(line) {
+  // "ke" / "di" + kata setelahnya → pakai non-breaking space
+  line = line.replace(/\b(ke|di)\s+(?=\S)/gi, (match, p1) => {
+    return p1 + '\u00A0'; // \u00A0 = non-breaking space
+  });
+
+  // "terima kasih"
+  line = line.replace(/\b(terima)\s+(kasih)\b/gi, (match, a, b) => {
+    return a + '\u00A0' + b;
+  });
+
+  // "Jawa Pos"
+  line = line.replace(/\b(Jawa)\s+(Pos)\b/gi, (match, a, b) => {
+    return a + '\u00A0' + b;
+  });
+
+  return line;
+}
+
+// Bangun halaman isi dari textarea (dengan anti-orphan)
 function rebuildBodyPages() {
   const allLines = bodyEl.value.split('\n');
   bodyPages = [];
@@ -481,7 +503,9 @@ function rebuildBodyPages() {
         current = [];
       }
     } else {
-      current.push(trimmed);
+      // terapkan anti-orphan KHUSUS isi
+      const fixedLine = fixOrphansInBodyLine(trimmed);
+      current.push(fixedLine);
     }
   }
   if (current.length > 0) bodyPages.push(current);

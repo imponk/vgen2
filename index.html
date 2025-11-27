@@ -175,10 +175,10 @@ let bodyPages = [];   // array halaman, tiap halaman = array string (paragraf)
 let pageDurations = [];
 
 // Judul timing
-const TITLE_PRE_HOLD = 0.3;   // detik statis sebelum efek
+const TITLE_PRE_HOLD = 0.1;   // detik statis sebelum efek
 const TITLE_FADE_IN  = 0.28;   // durasi fade
 const TITLE_WIPE     = 0.35;   // durasi sapu kiri→kanan
-const TITLE_STATIC   = 2.5;    // hold setelah animasi
+const TITLE_STATIC   = 4;    // hold setelah animasi
 
 // Isi timing (cepat ringan)
 const BODY_FADE_IN   = 0.3;
@@ -366,8 +366,8 @@ function drawTitleScene(t) {
 
   if (t < TITLE_PRE_HOLD) {
     // sebelum animasi mulai: judul disembunyikan dulu (tidak lompat)
-    alpha = 0;
-    wipeProgress = 0;
+    alpha = 1;
+    wipeProgress = 1;
   } else if (t < TITLE_PRE_HOLD + animCore) {
     const tAnim = t - TITLE_PRE_HOLD;
 

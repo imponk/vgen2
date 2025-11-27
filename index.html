@@ -175,9 +175,9 @@ let bodyPages = [];   // array halaman, tiap halaman = array string (paragraf)
 let pageDurations = [];
 
 // Judul timing
-const TITLE_PRE_HOLD = 0.1;   // detik statis sebelum efek
-const TITLE_FADE_IN  = 0.28;   // durasi fade
-const TITLE_WIPE     = 0.35;   // durasi sapu kiri→kanan
+const TITLE_PRE_HOLD = 0.1;    // detik statis sebelum efek (judul full statis)
+const TITLE_FADE_IN  = 0.45;   // durasi fade (lebih mulus)
+const TITLE_WIPE     = 0.55;   // durasi sapu kiri→kanan (lebih mulus)
 const TITLE_STATIC   = 4;    // hold setelah animasi
 
 // Isi timing (cepat ringan)
@@ -344,6 +344,11 @@ function drawBaseBackground() {
   ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 }
 
+// easing baru: cubic ease-out (lebih halus untuk judul)
+function easeOut(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 // Slide judul (Upper/Judul/Subjudul) — versi animasi lebih mulus
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
@@ -365,7 +370,7 @@ function drawTitleScene(t) {
   let wipeProgress = 1;
 
   if (t < TITLE_PRE_HOLD) {
-    // sebelum animasi mulai: judul disembunyikan dulu (tidak lompat)
+    // sebelum animasi: judul tampil statis penuh
     alpha = 1;
     wipeProgress = 1;
   } else if (t < TITLE_PRE_HOLD + animCore) {
@@ -375,9 +380,9 @@ function drawTitleScene(t) {
     const pFadeRaw = Math.max(0, Math.min(tAnim / TITLE_FADE_IN, 1));
     const pWipeRaw = Math.max(0, Math.min(tAnim / TITLE_WIPE, 1));
 
-    // easing halus (smooth)
-    const easeFade = pFadeRaw * pFadeRaw * (3 - 2 * pFadeRaw);
-    const easeWipe = pWipeRaw * pWipeRaw * (3 - 2 * pWipeRaw);
+    // easing cubic ease-out
+    const easeFade = easeOut(pFadeRaw);
+    const easeWipe = easeOut(pWipeRaw);
 
     alpha = easeFade;
     wipeProgress = easeWipe;

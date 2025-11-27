@@ -110,7 +110,7 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Upper/Judul/Subjudul: muncul <b>statis 1 detik</b>, lalu <b>fade + sapu kiri→kanan</b>.<br>
+      Upper/Judul/Subjudul: muncul cepat, lalu <b>fade + sapu kiri→kanan</b>.<br>
       Isi: animasi <b>cepat ringan</b>, highlight [[...]] bergerak <b>per baris</b> (baris 1 dulu, lalu baris 2, dst).
     </small>
     <div class="field">
@@ -153,7 +153,6 @@ const SCALE = 2; // render di 2160x3840
 
 canvas.width  = LOGICAL_WIDTH * SCALE;
 canvas.height = LOGICAL_HEIGHT * SCALE;
-// ukuran visual diatur oleh CSS (max-height), jadi tidak wajib set style.width/height
 ctx.scale(SCALE, SCALE); // semua koordinat pakai sistem 1080x1920
 
 const upperEl = document.getElementById('upper');
@@ -179,7 +178,7 @@ let pageDurations = [];
 const TITLE_PRE_HOLD = 0.05;   // detik statis sebelum efek
 const TITLE_FADE_IN  = 0.28;   // durasi fade
 const TITLE_WIPE     = 0.35;   // durasi sapu kiri→kanan
-const TITLE_STATIC   = 2.5;   // hold setelah animasi
+const TITLE_STATIC   = 2.5;    // hold setelah animasi
 
 // Isi timing (cepat ringan)
 const BODY_FADE_IN   = 0.3;
@@ -345,7 +344,7 @@ function drawBaseBackground() {
   ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 }
 
-// Slide judul (Upper/Judul/Subjudul)
+// Slide judul (Upper/Judul/Subjudul) — versi animasi lebih mulus
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
   const H = LOGICAL_HEIGHT;
@@ -366,23 +365,24 @@ function drawTitleScene(t) {
   let wipeProgress = 1;
 
   if (t < TITLE_PRE_HOLD) {
-    alpha = 1;
-    wipeProgress = 1;
+    // sebelum animasi mulai: judul disembunyikan dulu (tidak lompat)
+    alpha = 0;
+    wipeProgress = 0;
   } else if (t < TITLE_PRE_HOLD + animCore) {
     const tAnim = t - TITLE_PRE_HOLD;
-    if (tAnim <= TITLE_FADE_IN) {
-      const p = Math.max(0, Math.min(tAnim / TITLE_FADE_IN, 1));
-      const ease = p * p * (3 - 2 * p);
-      alpha = ease;
-    } else {
-      alpha = 1;
-    }
-    if (tAnim <= TITLE_WIPE) {
-      wipeProgress = Math.max(0, Math.min(tAnim / TITLE_WIPE, 1));
-    } else {
-      wipeProgress = 1;
-    }
+
+    // progress fade & wipe
+    const pFadeRaw = Math.max(0, Math.min(tAnim / TITLE_FADE_IN, 1));
+    const pWipeRaw = Math.max(0, Math.min(tAnim / TITLE_WIPE, 1));
+
+    // easing halus (smooth)
+    const easeFade = pFadeRaw * pFadeRaw * (3 - 2 * pFadeRaw);
+    const easeWipe = pWipeRaw * pWipeRaw * (3 - 2 * pWipeRaw);
+
+    alpha = easeFade;
+    wipeProgress = easeWipe;
   } else {
+    // setelah animasi selesai: full on
     alpha = 1;
     wipeProgress = 1;
   }

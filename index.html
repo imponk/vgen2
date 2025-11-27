@@ -146,6 +146,16 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+// ====== SISTEM KOORDINAT LOGIS + RENDER 2x UNTUK TAJAM & LEBIH TIPIS ======
+const LOGICAL_WIDTH = 1080;
+const LOGICAL_HEIGHT = 1920;
+const SCALE = 2; // render di 2160x3840
+
+canvas.width  = LOGICAL_WIDTH * SCALE;
+canvas.height = LOGICAL_HEIGHT * SCALE;
+// ukuran visual diatur oleh CSS (max-height), jadi tidak wajib set style.width/height
+ctx.scale(SCALE, SCALE); // semua koordinat pakai sistem 1080x1920
+
 const upperEl = document.getElementById('upper');
 const titleEl = document.getElementById('title');
 const subtitleEl = document.getElementById('subtitle');
@@ -183,7 +193,7 @@ function setStatus(t) {
 }
 
 /**
- * wrapText BARU:
+ * wrapText:
  * - Menghormati line break manual (\n) dari textarea
  * - Tetap word-wrap otomatis per paragraf
  */
@@ -332,13 +342,13 @@ function drawWrappedRichParagraph(text, x, yStart, maxWidth, lineGap, normalColo
 // Background
 function drawBaseBackground() {
   ctx.fillStyle = '#808080';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 }
 
 // Slide judul (Upper/Judul/Subjudul)
 function drawTitleScene(t) {
-  const W = canvas.width;
-  const H = canvas.height;
+  const W = LOGICAL_WIDTH;
+  const H = LOGICAL_HEIGHT;
   drawBaseBackground();
 
   const upper = upperEl.value.trim();
@@ -427,8 +437,8 @@ function drawTitleScene(t) {
 
 // Slide isi
 function drawBodyPage(pageIndex, t, sceneDur) {
-  const W = canvas.width;
-  const H = canvas.height;
+  const W = LOGICAL_WIDTH;
+  const H = LOGICAL_HEIGHT;
   drawBaseBackground();
 
   const lines = bodyPages[pageIndex] || [];
@@ -628,7 +638,7 @@ previewBtn.addEventListener('click', () => {
 // Render WEBM
 renderBtn.addEventListener('click', () => {
   recomputeTargetDuration();
-  const stream = canvas.captureStream(30);
+  const stream = canvas.captureStream(30); // akan capture 2160x3840
   recordedChunks = [];
   mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
 

@@ -182,21 +182,39 @@ function setStatus(t) {
   statusEl.textContent = 'Status: ' + t;
 }
 
-// wrap text sederhana (judul, subjudul, upper)
+/**
+ * wrapText BARU:
+ * - Menghormati line break manual (\n) dari textarea
+ * - Tetap word-wrap otomatis per paragraf
+ */
 function wrapText(text, maxWidth) {
-  const words = text.split(' ');
+  const paragraphs = text.split(/\r?\n/);
   const lines = [];
-  let line = words[0] || '';
-  for (let i = 1; i < words.length; i++) {
-    const test = line + ' ' + words[i];
-    if (ctx.measureText(test).width > maxWidth) {
-      lines.push(line);
-      line = words[i];
-    } else {
-      line = test;
+
+  for (const para of paragraphs) {
+    const trimmed = para.trim();
+    if (!trimmed) {
+      // baris kosong manual
+      lines.push('');
+      continue;
     }
+
+    const words = trimmed.split(/\s+/);
+    let line = words[0];
+
+    for (let i = 1; i < words.length; i++) {
+      const word = words[i];
+      const testLine = line + ' ' + word;
+      if (ctx.measureText(testLine).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = testLine;
+      }
+    }
+    lines.push(line);
   }
-  lines.push(line);
+
   return lines;
 }
 

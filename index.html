@@ -381,10 +381,10 @@ function drawTitleScene(t) {
 
   // Judul
   if (title) {
-    ctx.font = "400 104px 'DM Serif Display'";
+    ctx.font = "400 100px 'DM Serif Display'";
     ctx.fillStyle = '#ffffff';
     const linesTitle = wrapText(title, textWidth);
-    const lhTitle = 104;
+    const lhTitle = 100;
     for (const line of linesTitle) {
       ctx.fillText(line, marginLeft, y);
       y += lhTitle;

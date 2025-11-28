@@ -151,7 +151,7 @@ const ctx = canvas.getContext('2d');
 
 const LOGICAL_WIDTH = 1080;
 const LOGICAL_HEIGHT = 1920;
-const SCALE = 2;
+const SCALE = 1.5;  // sebelumnya 2, sekarang 1.5 (≈1620x2880)
 
 canvas.width  = LOGICAL_WIDTH * SCALE;
 canvas.height = LOGICAL_HEIGHT * SCALE;
@@ -581,7 +581,9 @@ function drawFrame(globalT) {
     acc += d + PAGE_GAP;
   }
 
-  drawBodyPage(bodyPages.length - 1, pageDurations.at(-1));
+  const lastIndex = bodyPages.length - 1;
+  const lastDur = pageDurations[lastIndex] || 1;
+  drawBodyPage(lastIndex, lastDur);
 }
 
 /* ============================================================
@@ -615,12 +617,12 @@ previewBtn.addEventListener("click", () => {
 });
 
 /* ============================================================
-   RENDER BUTTON (CHROMEBOOK SAFE)
+   RENDER BUTTON (CHROMEBOOK + ANDROID FRIENDLY)
    ============================================================ */
 renderBtn.addEventListener("click", () => {
 
   if (typeof MediaRecorder === "undefined") {
-    alert("MediaRecorder tidak tersedia di Chromebook ini.");
+    alert("MediaRecorder tidak tersedia di perangkat ini.");
     setStatus("MediaRecorder tidak didukung");
     return;
   }
@@ -645,7 +647,7 @@ renderBtn.addEventListener("click", () => {
   }
 
   if (chosen == null) {
-    alert("Chromebook ini tidak mendukung perekaman video WebM.");
+    alert("Perangkat ini tidak mendukung perekaman video WebM.");
     setStatus("Format video tidak didukung");
     return;
   }
@@ -656,7 +658,7 @@ renderBtn.addEventListener("click", () => {
   try {
     mediaRecorder = new MediaRecorder(stream, options);
   } catch (err) {
-    alert("Gagal membuat MediaRecorder di Chromebook.\n" + err);
+    alert("Gagal membuat MediaRecorder di perangkat ini.\n" + err);
     setStatus("MediaRecorder gagal dibuat");
     return;
   }
@@ -667,7 +669,7 @@ renderBtn.addEventListener("click", () => {
 
   mediaRecorder.onstop = () => {
     if (recordedChunks.length === 0) {
-      alert("Chromebook tidak mengirimkan data perekaman.");
+      alert("Tidak ada data rekaman video (fitur mungkin dibatasi di perangkat ini).");
       setStatus("Tidak ada data video");
       recording = false;
       return;
@@ -690,15 +692,31 @@ renderBtn.addEventListener("click", () => {
     recording = false;
   };
 
-  mediaRecorder.start();
+  // flag dulu
   recording = true;
   animating = true;
   animStart = null;
   setStatus("rendering...");
   requestAnimationFrame(animate);
 
+  // delay kecil supaya Android/Chromebook siap sebelum start()
   setTimeout(() => {
-    if (recording && mediaRecorder.state === "recording") {
+    if (!mediaRecorder) return;
+    try {
+      mediaRecorder.start();
+    } catch (e) {
+      console.error("MediaRecorder.start error:", e);
+      alert("Gagal memulai perekaman di perangkat ini.");
+      setStatus("Gagal memulai perekaman");
+      recording = false;
+      animating = false;
+      return;
+    }
+  }, 120);
+
+  // stop otomatis
+  setTimeout(() => {
+    if (recording && mediaRecorder && mediaRecorder.state === "recording") {
       mediaRecorder.stop();
     }
   }, targetDuration * 1000 + 500);

@@ -111,7 +111,7 @@
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
       Upper/Judul/Subjudul: muncul cepat, lalu <b>fade + sapu kiri→kanan</b>.<br>
-      Isi: animasi <b>cepat ringan</b>, highlight [[...]] bergerak <b>per baris</b> (baris 1 dulu, lalu baris 2, dst).
+      Isi: animasi <b>cepat ringan</b>, highlight [[...]] bergerak <b>per baris</b>.
     </small>
     <div class="field">
       <label>Upper</label>
@@ -143,22 +143,25 @@
   </div>
 
 <script>
+/* ============================================================
+   BASE SETUP
+   ============================================================ */
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-// ====== SISTEM KOORDINAT LOGIS + RENDER 2x UNTUK TAJAM & LEBIH TIPIS ======
 const LOGICAL_WIDTH = 1080;
 const LOGICAL_HEIGHT = 1920;
-const SCALE = 2; // render di 2160x3840
+const SCALE = 2;
 
 canvas.width  = LOGICAL_WIDTH * SCALE;
 canvas.height = LOGICAL_HEIGHT * SCALE;
-ctx.scale(SCALE, SCALE); // semua koordinat pakai sistem 1080x1920
+ctx.scale(SCALE, SCALE);
 
 const upperEl = document.getElementById('upper');
 const titleEl = document.getElementById('title');
 const subtitleEl = document.getElementById('subtitle');
 const bodyEl = document.getElementById('body');
+
 const previewBtn = document.getElementById('previewBtn');
 const renderBtn = document.getElementById('renderBtn');
 const statusEl = document.getElementById('status');
@@ -168,34 +171,35 @@ let animating = false;
 let recording = false;
 let mediaRecorder = null;
 let recordedChunks = [];
-let startTime = null;
+let animStart = null;
 let targetDuration = 12;
 
-let bodyPages = [];   // array halaman, tiap halaman = array string (paragraf)
+let bodyPages = [];
 let pageDurations = [];
 
-// Judul timing
-const TITLE_PRE_HOLD = 0.05;    // detik statis sebelum efek (judul full statis)
-const TITLE_FADE_IN  = 0.45;   // durasi fade (lebih mulus)
-const TITLE_WIPE     = 0.55;   // durasi sapu kiri→kanan (lebih mulus)
-const TITLE_STATIC   = 2.5;    // hold setelah animasi
+/* ============================================================
+   TITLE TIMING (smooth)
+   ============================================================ */
+const TITLE_PRE_HOLD = 0.05;
+const TITLE_FADE_IN  = 0.45;
+const TITLE_WIPE     = 0.55;
+const TITLE_STATIC   = 2.5;
 
-// Isi timing (cepat ringan)
+/* ============================================================
+   BODY TIMING
+   ============================================================ */
 const BODY_FADE_IN   = 0.3;
 const BODY_WIPE      = 0.4;
-const BODY_FADE_OUT  = 0.5;   // tidak dipakai (fade-out dihapus)
-const HIGHLIGHT_LINE_DUR = 0.8;  // durasi highlight per baris
-const PAGE_GAP = 0.6; // jeda antar isi
+const HIGHLIGHT_LINE_DUR = 0.8;
+const PAGE_GAP = 0.6;
 
 function setStatus(t) {
   statusEl.textContent = 'Status: ' + t;
 }
 
-/**
- * wrapText:
- * - Menghormati line break manual (\n) dari textarea
- * - Tetap word-wrap otomatis per paragraf
- */
+/* ============================================================
+   TEXT WRAPPING + HIGHLIGHT TOKENIZER
+   ============================================================ */
 function wrapText(text, maxWidth) {
   const paragraphs = text.split(/\r?\n/);
   const lines = [];
@@ -203,7 +207,6 @@ function wrapText(text, maxWidth) {
   for (const para of paragraphs) {
     const trimmed = para.trim();
     if (!trimmed) {
-      // baris kosong manual
       lines.push('');
       continue;
     }
@@ -227,129 +230,137 @@ function wrapText(text, maxWidth) {
   return lines;
 }
 
-// Tokenize dengan [[highlight]]
 function tokenizeHighlighted(text) {
   let tokens = [];
-  let current = '';
-  let inHighlight = false;
+  let buf = '';
+  let hi = false;
   let i = 0;
-  function pushCurrent() {
-    if (current.length > 0) {
-      tokens.push({ text: current, highlight: inHighlight });
-      current = '';
+
+  function flush() {
+    if (buf.length > 0) {
+      tokens.push({ text: buf, highlight: hi });
+      buf = '';
     }
   }
+
   while (i < text.length) {
-    if (!inHighlight && text.startsWith('[[', i)) {
-      pushCurrent();
-      inHighlight = true;
+    if (!hi && text.startsWith('[[', i)) {
+      flush();
+      hi = true;
       i += 2;
-    } else if (inHighlight && text.startsWith(']]', i)) {
-      pushCurrent();
-      inHighlight = false;
+    } else if (hi && text.startsWith(']]', i)) {
+      flush();
+      hi = false;
       i += 2;
     } else {
       const ch = text[i];
-      current += ch;
-      if (ch === ' ') pushCurrent();
+      buf += ch;
+      if (ch === ' ') flush();
       i++;
     }
   }
-  pushCurrent();
+  flush();
   return tokens;
 }
 
-// Gambar satu baris (visual line) dengan highlight kontinyu dan progress per baris
-function drawLineFromTokens(tokens, x, y, normalColor, highlightColor, highlightBg, lineProgress) {
-  if (lineProgress <= 0) {
-    const full0 = tokens.map(t => t.text).join('');
+/* ============================================================
+   DRAW HIGHLIGHT LINE
+   ============================================================ */
+function drawLineFromTokens(tokens, x, y, normalColor, highlightBg, progress) {
+  if (progress <= 0) {
     ctx.fillStyle = normalColor;
-    ctx.fillText(full0, x, y);
+    ctx.fillText(tokens.map(t => t.text).join(''), x, y);
     return;
   }
-  if (lineProgress > 1) lineProgress = 1;
+  if (progress > 1) progress = 1;
 
-  let full = '';
-  for (const t of tokens) full += t.text;
+  const full = tokens.map(t => t.text).join('');
 
-  let firstHi = null;
-  let lastHi = null;
+  let first = null;
+  let last = null;
   let index = 0;
+
   for (const t of tokens) {
     const len = t.text.length;
     if (t.highlight && t.text.trim().length > 0) {
-      if (firstHi === null) firstHi = index;
-      lastHi = index + len;
+      if (first === null) first = index;
+      last = index + len;
     }
     index += len;
   }
 
-  if (firstHi !== null && lastHi !== null) {
-    const before = full.slice(0, firstHi);
-    const inside = full.slice(firstHi, lastHi);
+  if (first !== null) {
+    const before = full.slice(0, first);
+    const inside = full.slice(first, last);
+
     const wBefore = ctx.measureText(before).width;
     const wInside = ctx.measureText(inside).width;
-    const visible = wInside * lineProgress;
-    const rectX = x + wBefore - 4;
-    const rectY = y - 44;   // dinaikkan 2px
-    const rectH = 58;       // lebih tinggi
+    const visible = wInside * progress;
+
     ctx.fillStyle = highlightBg;
-    ctx.fillRect(rectX, rectY, visible + 8, rectH);
+    ctx.fillRect(x + wBefore - 4, y - 44, visible + 8, 58);
   }
 
   ctx.fillStyle = normalColor;
   ctx.fillText(full, x, y);
 }
 
-// Gambar paragraf dengan wrap, highlight per baris berurutan di seluruh halaman
-function drawWrappedRichParagraph(text, x, yStart, maxWidth, lineGap, normalColor, highlightBg, globalLineIndexStart, timeForHighlight) {
+/* ============================================================
+   PARAGRAPH DRAWER
+   ============================================================ */
+function drawWrappedRichParagraph(text, x, yStart, maxWidth, lineGap, normal, highlightBg, indexStart, time) {
   const tokens = tokenizeHighlighted(text);
-  const linesTokens = [];
-  let currentTokens = [];
-  let currentText = '';
+  let lines = [];
+  let curTokens = [];
+  let curText = '';
 
   for (const tok of tokens) {
-    const test = currentText + tok.text;
-    const w = ctx.measureText(test).width;
-    if (currentText && w > maxWidth) {
-      linesTokens.push(currentTokens);
-      currentTokens = [tok];
-      currentText = tok.text;
+    const test = curText + tok.text;
+    if (curText && ctx.measureText(test).width > maxWidth) {
+      lines.push(curTokens);
+      curTokens = [tok];
+      curText = tok.text;
     } else {
-      currentTokens.push(tok);
-      currentText = test;
+      curTokens.push(tok);
+      curText = test;
     }
   }
-  if (currentTokens.length > 0) linesTokens.push(currentTokens);
+  if (curTokens.length) lines.push(curTokens);
 
   let y = yStart;
-  let globalLineIndex = globalLineIndexStart;
+  let id = indexStart;
 
-  for (const lineTokens of linesTokens) {
-    const lineStartT = globalLineIndex * HIGHLIGHT_LINE_DUR;
-    const rel = (timeForHighlight - lineStartT) / HIGHLIGHT_LINE_DUR;
-    const lineProgress = Math.max(0, Math.min(rel, 1));
+  for (const lineTokens of lines) {
+    const startT = id * HIGHLIGHT_LINE_DUR;
+    const rel = (time - startT) / HIGHLIGHT_LINE_DUR;
+    const p = Math.max(0, Math.min(rel, 1));
 
-    drawLineFromTokens(lineTokens, x, y, normalColor, normalColor, highlightBg, lineProgress);
+    drawLineFromTokens(lineTokens, x, y, normal, highlightBg, p);
     y += lineGap;
-    globalLineIndex++;
+    id++;
   }
 
-  return { y, linesUsed: linesTokens.length };
+  return { y, linesUsed: lines.length };
 }
 
-// Background
+/* ============================================================
+   BACKGROUND
+   ============================================================ */
 function drawBaseBackground() {
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 }
 
-// easing baru: cubic ease-out (lebih halus untuk judul)
+/* ============================================================
+   SMOOTH EASING
+   ============================================================ */
 function easeOut(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// Slide judul (Upper/Judul/Subjudul) — versi animasi lebih mulus
+/* ============================================================
+   TITLE SLIDE
+   ============================================================ */
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
   const H = LOGICAL_HEIGHT;
@@ -362,306 +373,320 @@ function drawTitleScene(t) {
   const marginLeft = 110;
   const marginRight = 140;
   const textWidth = W - marginLeft - marginRight;
-  let y = H - 700;  // dinaikkan agar Upper lebih tinggi
 
-  const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
+  let y = H - 700;
 
+  const maxAnim = Math.max(TITLE_FADE_IN, TITLE_WIPE);
   let alpha = 1;
-  let wipeProgress = 1;
+  let wipe = 1;
 
   if (t < TITLE_PRE_HOLD) {
-    // sebelum animasi: judul tampil statis penuh
     alpha = 1;
-    wipeProgress = 1;
-  } else if (t < TITLE_PRE_HOLD + animCore) {
-    const tAnim = t - TITLE_PRE_HOLD;
-
-    // progress fade & wipe
-    const pFadeRaw = Math.max(0, Math.min(tAnim / TITLE_FADE_IN, 1));
-    const pWipeRaw = Math.max(0, Math.min(tAnim / TITLE_WIPE, 1));
-
-    // easing cubic ease-out
-    const easeFade = easeOut(pFadeRaw);
-    const easeWipe = easeOut(pWipeRaw);
-
-    alpha = easeFade;
-    wipeProgress = easeWipe;
+    wipe = 1;
+  } else if (t < TITLE_PRE_HOLD + maxAnim) {
+    const tt = t - TITLE_PRE_HOLD;
+    const pFade = easeOut(Math.min(tt / TITLE_FADE_IN, 1));
+    const pWipe = easeOut(Math.min(tt / TITLE_WIPE, 1));
+    alpha = pFade;
+    wipe = pWipe;
   } else {
-    // setelah animasi selesai: full on
     alpha = 1;
-    wipeProgress = 1;
+    wipe = 1;
   }
 
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.beginPath();
-  ctx.rect(0, 0, marginLeft + textWidth * wipeProgress, H);
+  ctx.rect(0, 0, marginLeft + textWidth * wipe, H);
   ctx.clip();
   ctx.textAlign = 'left';
 
-  // Upper
+  // upper
   if (upper) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
-    ctx.fillStyle = '#ffffff';
-    const linesUpper = wrapText(upper, textWidth);
-    const lhUpper = 36;
-    for (const line of linesUpper) {
+    ctx.fillStyle = "#fff";
+    for (const line of wrapText(upper, textWidth)) {
       ctx.fillText(line, marginLeft, y);
-      y += lhUpper;
+      y += 36;
     }
-    y += 70; // jarak ekstra dari upper ke judul
+    y += 70;
   }
 
-  // Judul
+  // title
   if (title) {
     ctx.font = "400 100px 'DM Serif Display'";
-    ctx.fillStyle = '#ffffff';
-    const linesTitle = wrapText(title, textWidth);
-    const lhTitle = 100;
-    for (const line of linesTitle) {
+    ctx.fillStyle = "#fff";
+    for (const line of wrapText(title, textWidth)) {
       ctx.fillText(line, marginLeft, y);
-      y += lhTitle;
+      y += 100;
     }
-    y += -20; // jarak ke subjudul rapat
+    y -= 20;
   }
 
-  // Subjudul
+  // subtitle
   if (subtitle) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
-    ctx.fillStyle = '#ffffff';
-    const linesSub = wrapText(subtitle, textWidth);
-    const lhSub = 36;
-    for (const line of linesSub) {
+    ctx.fillStyle = "#fff";
+    for (const line of wrapText(subtitle, textWidth)) {
       ctx.fillText(line, marginLeft, y);
-      y += lhSub;
+      y += 36;
     }
   }
 
   ctx.restore();
 }
 
-// Slide isi
-function drawBodyPage(pageIndex, t, sceneDur) {
-  const W = LOGICAL_WIDTH;
-  const H = LOGICAL_HEIGHT;
+/* ============================================================
+   BODY SLIDE
+   ============================================================ */
+function drawBodyPage(pageIndex, t) {
   drawBaseBackground();
 
   const lines = bodyPages[pageIndex] || [];
+  const W = LOGICAL_WIDTH;
   const marginLeft = 110;
   const marginRight = 140;
   const maxWidth = W - marginLeft - marginRight;
 
   let alpha = 1;
-  if (t < BODY_FADE_IN) {
-    alpha = t / BODY_FADE_IN;
-  }
-  alpha = Math.max(0, Math.min(1, alpha));
+  if (t < BODY_FADE_IN) alpha = t / BODY_FADE_IN;
 
-  let wipeProgress = 1;
-  if (t < BODY_WIPE) {
-    wipeProgress = t / BODY_WIPE;
-  } else {
-    wipeProgress = 1;
-  }
+  let wipe = 1;
+  if (t < BODY_WIPE) wipe = t / BODY_WIPE;
 
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.beginPath();
-  ctx.rect(0, 0, marginLeft + maxWidth * wipeProgress, H);
+  ctx.rect(0, 0, marginLeft + maxWidth * wipe, LOGICAL_HEIGHT);
   ctx.clip();
 
   ctx.textAlign = 'left';
   ctx.font = "700 56px 'PlusJakartaCustom'";
 
-  let y = H - 600;
-  const lineGap = 64;
-  let globalLineIndex = 0;
+  let y = LOGICAL_HEIGHT - 600;
+  const gap = 64;
+  let idx = 0;
 
-  for (const rawLine of lines) {
-    const text = rawLine.trimEnd();
-    if (!text.trim()) {
-      y += lineGap * 0.6;
+  for (const raw of lines) {
+    if (!raw.trim()) {
+      y += gap * 0.6;
       continue;
     }
-    const result = drawWrappedRichParagraph(
-      text,
+    const res = drawWrappedRichParagraph(
+      raw,
       marginLeft,
       y,
       maxWidth,
-      lineGap,
-      '#ffffff',
-      '#0088d8',
-      globalLineIndex,
-      t   // waktu untuk highlight
+      gap,
+      "#fff",
+      "#0088d8",
+      idx,
+      t
     );
-    y = result.y;
-    globalLineIndex += result.linesUsed;
+    y = res.y;
+    idx += res.linesUsed;
   }
 
   ctx.restore();
 }
 
-// =========================
-// ANTI-ORPHAN KHUSUS ISI
-// =========================
-function fixOrphansInBodyLine(line) {
-  // "ke" / "di" + kata setelahnya → pakai non-breaking space
-  line = line.replace(/\b(ke|di)\s+(?=\S)/gi, (match, p1) => {
-    return p1 + '\u00A0'; // \u00A0 = non-breaking space
-  });
-
-  // "terima kasih"
-  line = line.replace(/\b(terima)\s+(kasih)\b/gi, (match, a, b) => {
-    return a + '\u00A0' + b;
-  });
-
-  // "Jawa Pos"
-  line = line.replace(/\b(Jawa)\s+(Pos)\b/gi, (match, a, b) => {
-    return a + '\u00A0' + b;
-  });
-
+/* ============================================================
+   ORPHAN FIX
+   ============================================================ */
+function fixOrphans(line) {
+  line = line.replace(/\b(ke|di)\s+(?=\S)/gi, (m, p) => p + '\u00A0');
+  line = line.replace(/\b(terima)\s+(kasih)\b/gi, 'terima\u00A0kasih');
+  line = line.replace(/\b(Jawa)\s+(Pos)\b/gi, 'Jawa\u00A0Pos');
   return line;
 }
 
-// Bangun halaman isi dari textarea (dengan anti-orphan)
+/* ============================================================
+   BUILD BODY PAGES
+   ============================================================ */
 function rebuildBodyPages() {
-  const allLines = bodyEl.value.split('\n');
+  const raw = bodyEl.value.split("\n");
   bodyPages = [];
-  let current = [];
-  for (const raw of allLines) {
-    const trimmed = raw.trimEnd();
-    if (!trimmed.trim()) {
-      if (current.length > 0) {
-        bodyPages.push(current.slice());
-        current = [];
+  let cur = [];
+
+  for (const line of raw) {
+    const tr = line.trimEnd();
+    if (!tr.trim()) {
+      if (cur.length > 0) {
+        bodyPages.push(cur.slice());
+        cur = [];
       }
     } else {
-      // terapkan anti-orphan KHUSUS isi
-      const fixedLine = fixOrphansInBodyLine(trimmed);
-      current.push(fixedLine);
+      cur.push(fixOrphans(tr));
     }
   }
-  if (current.length > 0) bodyPages.push(current);
+  if (cur.length > 0) bodyPages.push(cur);
   if (bodyPages.length === 0) bodyPages = [[]];
 }
 
-// Hitung durasi total (termasuk jeda antar isi)
+/* ============================================================
+   DURATION CALC
+   ============================================================ */
 function recomputeTargetDuration() {
   rebuildBodyPages();
   pageDurations = [];
+
   for (const page of bodyPages) {
-    const text = page.join(' ').replace(/\s+/g, '');
-    const charCount = text.length;
-    let d = 2.5 + charCount * 0.035;
+    const chars = page.join(' ').replace(/\s+/g, '').length;
+    let d = 2.5 + chars * 0.035;
     if (d < 3) d = 3;
     if (d > 10) d = 10;
     pageDurations.push(d);
   }
+
   const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
   const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
 
-  const isiDurNoGap = pageDurations.reduce((a, b) => a + b, 0);
-  const gapDur = PAGE_GAP * Math.max(0, bodyPages.length - 1);
-  const isiTotal = isiDurNoGap + gapDur;
+  const contentDurNoGap = pageDurations.reduce((a, b) => a + b, 0);
+  const gapDur = PAGE_GAP * (bodyPages.length - 1);
 
-  targetDuration = titleTotal + 1.0 + isiTotal; // +1s gap setelah judul
+  targetDuration = titleTotal + 1 + (contentDurNoGap + gapDur);
 }
 
-// Gambar frame berdasarkan waktu global
+/* ============================================================
+   FRAME RENDER SELECTOR
+   ============================================================ */
 function drawFrame(globalT) {
   const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
   const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
-  const gapEnd = titleTotal + 1.0;
+  const afterTitleGap = titleTotal + 1;
 
   if (globalT <= titleTotal) {
     drawTitleScene(globalT);
     return;
   }
-  if (globalT <= gapEnd) {
+
+  if (globalT <= afterTitleGap) {
     drawBaseBackground();
     return;
   }
 
-  const tIsi = globalT - gapEnd;
+  const tBody = globalT - afterTitleGap;
   let acc = 0;
 
   for (let i = 0; i < bodyPages.length; i++) {
     const d = pageDurations[i];
-    const blockEnd = acc + d;
-
-    // fase tampilan isi
-    if (tIsi < blockEnd) {
-      const tInPage = tIsi - acc;
-      drawBodyPage(i, tInPage, d);
+    if (tBody < acc + d) {
+      drawBodyPage(i, tBody - acc);
       return;
     }
-
-    // fase jeda setelah halaman ini
-    if (tIsi < blockEnd + PAGE_GAP) {
-      drawBaseBackground();  // tampilan kosong saat jeda
+    if (tBody < acc + d + PAGE_GAP) {
+      drawBaseBackground();
       return;
     }
-
-    acc = blockEnd + PAGE_GAP; // lanjut ke halaman berikutnya
+    acc += d + PAGE_GAP;
   }
 
-  const lastIndex = bodyPages.length - 1;
-  const lastDur = pageDurations[lastIndex] || 1;
-  drawBodyPage(lastIndex, lastDur - 0.001, lastDur);
+  drawBodyPage(bodyPages.length - 1, pageDurations.at(-1));
 }
 
-// Animasi
-let animStart = null;
+/* ============================================================
+   ANIMATION LOOP
+   ============================================================ */
 function animate(ts) {
   if (!animating && !recording) return;
   if (!animStart) animStart = ts;
+
   const elapsed = (ts - animStart) / 1000;
-  const t = Math.min(elapsed, targetDuration);
-  drawFrame(t);
+  drawFrame(Math.min(elapsed, targetDuration));
+
   if (elapsed < targetDuration) {
     requestAnimationFrame(animate);
-  } else {
-    if (recording) {
-      requestAnimationFrame(animate);
-    } else {
-      animating = false;
-      setStatus('preview selesai');
-    }
+  } else if (!recording) {
+    animating = false;
+    setStatus("preview selesai");
   }
 }
 
-// Preview
-previewBtn.addEventListener('click', () => {
+/* ============================================================
+   PREVIEW BUTTON
+   ============================================================ */
+previewBtn.addEventListener("click", () => {
   recomputeTargetDuration();
+  animStart = null;
   animating = true;
   recording = false;
-  animStart = null;
-  setStatus('preview');
+  setStatus("preview");
   requestAnimationFrame(animate);
 });
 
-// Render WEBM
-renderBtn.addEventListener('click', () => {
+/* ============================================================
+   RENDER BUTTON (CHROMEBOOK SAFE)
+   ============================================================ */
+renderBtn.addEventListener("click", () => {
+
+  if (typeof MediaRecorder === "undefined") {
+    alert("MediaRecorder tidak tersedia di Chromebook ini.");
+    setStatus("MediaRecorder tidak didukung");
+    return;
+  }
+
   recomputeTargetDuration();
-  const stream = canvas.captureStream(30); // akan capture 2160x3840
+  const stream = canvas.captureStream(30);
   recordedChunks = [];
-  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    ""
+  ];
+
+  let chosen = null;
+  for (const c of candidates) {
+    if (!c || MediaRecorder.isTypeSupported(c)) {
+      chosen = c;
+      break;
+    }
+  }
+
+  if (chosen == null) {
+    alert("Chromebook ini tidak mendukung perekaman video WebM.");
+    setStatus("Format video tidak didukung");
+    return;
+  }
+
+  let options = {};
+  if (chosen) options.mimeType = chosen;
+
+  try {
+    mediaRecorder = new MediaRecorder(stream, options);
+  } catch (err) {
+    alert("Gagal membuat MediaRecorder di Chromebook.\n" + err);
+    setStatus("MediaRecorder gagal dibuat");
+    return;
+  }
 
   mediaRecorder.ondataavailable = (e) => {
     if (e.data.size > 0) recordedChunks.push(e.data);
   };
+
   mediaRecorder.onstop = () => {
-    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    if (recordedChunks.length === 0) {
+      alert("Chromebook tidak mengirimkan data perekaman.");
+      setStatus("Tidak ada data video");
+      recording = false;
+      return;
+    }
+
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'reels_output.webm';
-    a.textContent = 'Download video (WEBM)';
-    a.style.color = '#38bdf8';
-    a.style.textDecoration = 'underline';
-    downloadEl.innerHTML = '';
+    a.download = "reels_output.webm";
+    a.textContent = "Download video (WEBM)";
+    a.style.color = "#38bdf8";
+    a.style.textDecoration = "underline";
+
+    downloadEl.innerHTML = "";
     downloadEl.appendChild(a);
-    setStatus('render selesai');
+
+    setStatus("render selesai");
     recording = false;
   };
 
@@ -669,16 +694,19 @@ renderBtn.addEventListener('click', () => {
   recording = true;
   animating = true;
   animStart = null;
-  setStatus('rendering...');
-
+  setStatus("rendering...");
   requestAnimationFrame(animate);
 
   setTimeout(() => {
-    if (recording && mediaRecorder) mediaRecorder.stop();
+    if (recording && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
   }, targetDuration * 1000 + 500);
 });
 
-// Draw first frame
+/* ============================================================
+   INITIAL FRAME
+   ============================================================ */
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => drawFrame(0));
 } else {

@@ -227,7 +227,7 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Upper/Judul/Subjudul muncul dulu, lalu <b>fade + sapu kiri→kanan</b>.<br>
+      Upper/Judul/Subjudul pakai highlight sapuan per baris, seperti isi.<br>
       Isi memakai [[highlight]] per baris dengan animasi cepat dan ringan.
     </small>
 
@@ -312,12 +312,11 @@ let titleLayout = {
 };
 
 /* ============================================================
-   TITLE TIMING (smooth, Versi 2 + linear wipe)
+   TITLE TIMING – versi highlight seperti isi
    ============================================================ */
-const TITLE_PRE_HOLD = 0.3;   // 0–0.3s judul full statis
-const TITLE_FADE_IN  = 0.45;
-const TITLE_WIPE     = 0.45;  // linear, stabil
-const TITLE_STATIC   = 2.5;
+const TITLE_PRE_HOLD = 0.3;          // 0–0.3s: judul full statis
+const TITLE_HL_LINE_DUR = 0.6;      // tiap baris highlight 0.6s
+const TITLE_STATIC     = 2.0;       // hold setelah highlight selesai
 
 /* ============================================================
    BODY TIMING
@@ -335,7 +334,6 @@ function setStatus(t) {
    TEXT WRAPPING + HIGHLIGHT TOKENIZER
    ============================================================ */
 function wrapText(text, maxWidth, fontSpec) {
-  // optional: set fontSpec sementara untuk akurasi measure
   if (fontSpec) ctx.font = fontSpec;
 
   const paragraphs = text.split(/\r?\n/);
@@ -401,7 +399,7 @@ function tokenizeHighlighted(text) {
 }
 
 /* ============================================================
-   DRAW HIGHLIGHT LINE
+   DRAW HIGHLIGHT LINE (untuk isi)
    ============================================================ */
 function drawLineFromTokens(tokens, x, y, normalColor, highlightBg, progress) {
   if (progress <= 0) {
@@ -443,7 +441,7 @@ function drawLineFromTokens(tokens, x, y, normalColor, highlightBg, progress) {
 }
 
 /* ============================================================
-   PARAGRAPH DRAWER
+   PARAGRAPH DRAWER (untuk isi)
    ============================================================ */
 function drawWrappedRichParagraph(text, x, yStart, maxWidth, lineGap, normal, highlightBg, indexStart, time) {
   const tokens = tokenizeHighlighted(text);
@@ -489,13 +487,6 @@ function drawBaseBackground() {
 }
 
 /* ============================================================
-   SMOOTH EASING
-   ============================================================ */
-function easeOut(t) {
-  return 1 - Math.pow(1 - t, 3);
-}
-
-/* ============================================================
    PRECOMPUTE TITLE LAYOUT
    ============================================================ */
 function rebuildTitleLayout() {
@@ -507,10 +498,9 @@ function rebuildTitleLayout() {
   const title = titleEl.value.trim();
   const subtitle = subtitleEl.value.trim();
 
-  // gunakan font yang sama dengan drawing
-  const upperFont   = "700 34px 'PlusJakartaCustom'";
-  const titleFont   = "400 100px 'DM Serif Display'";
-  const subtitleFont= "700 34px 'PlusJakartaCustom'";
+  const upperFont    = "700 34px 'PlusJakartaCustom'";
+  const titleFont    = "400 100px 'DM Serif Display'";
+  const subtitleFont = "700 34px 'PlusJakartaCustom'";
 
   let upperLines = [];
   let titleLines = [];
@@ -536,85 +526,145 @@ function rebuildTitleLayout() {
   };
 }
 
+function getTitleAnimCore() {
+  const totalLines =
+    titleLayout.upperLines.length +
+    titleLayout.titleLines.length +
+    titleLayout.subtitleLines.length;
+  return totalLines * TITLE_HL_LINE_DUR;
+}
+
 /* ============================================================
-   TITLE SLIDE – Versi 2 + linear wipe, pakai layout precompute
+   TITLE SLIDE – highlight per baris seperti isi
    ============================================================ */
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
   const H = LOGICAL_HEIGHT;
   drawBaseBackground();
 
-  const marginLeft  = titleLayout.marginLeft;
-  const textWidth   = titleLayout.textWidth;
-  const upperLines  = titleLayout.upperLines;
-  const titleLines  = titleLayout.titleLines;
+  const marginLeft    = titleLayout.marginLeft;
+  const textWidth     = titleLayout.textWidth;
+  const upperLines    = titleLayout.upperLines;
+  const titleLines    = titleLayout.titleLines;
   const subtitleLines = titleLayout.subtitleLines;
 
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff';
+
+  // posisi umum
   let y = H - 700;
 
-  const maxAnim = Math.max(TITLE_FADE_IN, TITLE_WIPE);
-  let alpha = 1;
-  let wipe = 1;
-
+  // 1) fase PRE_HOLD: semua teks tampil penuh, tanpa highlight
   if (t < TITLE_PRE_HOLD) {
-    // 0 → TITLE_PRE_HOLD: judul FULL, statis
-    alpha = 1;
-    wipe = 1;
-  } else if (t < TITLE_PRE_HOLD + maxAnim) {
-    const tt = t - TITLE_PRE_HOLD;
+    // upper
+    if (upperLines.length > 0) {
+      ctx.font = "700 34px 'PlusJakartaCustom'";
+      for (const line of upperLines) {
+        ctx.fillText(line, marginLeft, y);
+        y += 36;
+      }
+      y += 70;
+    }
 
-    // Fade tetap pakai easing: 0.85 → 1.00
-    const pFade = easeOut(Math.min(tt / TITLE_FADE_IN, 1));
-    alpha = 0.85 + 0.15 * pFade;
+    // title
+    if (titleLines.length > 0) {
+      ctx.font = "400 100px 'DM Serif Display'";
+      for (const line of titleLines) {
+        ctx.fillText(line, marginLeft, y);
+        y += 100;
+      }
+      y -= 20;
+    }
 
-    // Wipe LINEAR: stabil
-    const pWipe = Math.min(tt / TITLE_WIPE, 1);
-    wipe = pWipe;
-  } else {
-    alpha = 1;
-    wipe = 1;
+    // subtitle
+    if (subtitleLines.length > 0) {
+      ctx.font = "700 34px 'PlusJakartaCustom'";
+      for (const line of subtitleLines) {
+        ctx.fillText(line, marginLeft, y);
+        y += 36;
+      }
+    }
+
+    return;
   }
 
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.beginPath();
-  ctx.rect(0, 0, marginLeft + textWidth * wipe, H);
-  ctx.clip();
-  ctx.textAlign = 'left';
+  // 2) fase highlight berjalan
+  const animCore = getTitleAnimCore();
+  const localT = Math.min(t - TITLE_PRE_HOLD, animCore + TITLE_STATIC);
 
-  // upper
+  let lineIndex = 0;
+  y = H - 700;
+
+  // upper lines
   if (upperLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
-    ctx.fillStyle = "#fff";
     for (const line of upperLines) {
+      const start = lineIndex * TITLE_HL_LINE_DUR;
+      const rel = (localT - start) / TITLE_HL_LINE_DUR;
+      const p = Math.max(0, Math.min(rel, 1)); // linear, halus
+
+      if (p > 0) {
+        const w = ctx.measureText(line).width;
+        ctx.fillStyle = "#0088d8";
+        ctx.fillRect(marginLeft - 4, y - 30, w * p + 8, 44);
+        ctx.fillStyle = "#fff";
+      } else {
+        ctx.fillStyle = "#fff";
+      }
+
       ctx.fillText(line, marginLeft, y);
       y += 36;
+      lineIndex++;
     }
     y += 70;
   }
 
-  // title
+  // title lines
   if (titleLines.length > 0) {
     ctx.font = "400 100px 'DM Serif Display'";
-    ctx.fillStyle = "#fff";
     for (const line of titleLines) {
+      const start = lineIndex * TITLE_HL_LINE_DUR;
+      const rel = (localT - start) / TITLE_HL_LINE_DUR;
+      const p = Math.max(0, Math.min(rel, 1));
+
+      if (p > 0) {
+        const w = ctx.measureText(line).width;
+        ctx.fillStyle = "#0088d8";
+        ctx.fillRect(marginLeft - 8, y - 90, w * p + 16, 120);
+        ctx.fillStyle = "#fff";
+      } else {
+        ctx.fillStyle = "#fff";
+      }
+
       ctx.fillText(line, marginLeft, y);
       y += 100;
+      lineIndex++;
     }
     y -= 20;
   }
 
-  // subtitle
+  // subtitle lines
   if (subtitleLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
-    ctx.fillStyle = "#fff";
     for (const line of subtitleLines) {
+      const start = lineIndex * TITLE_HL_LINE_DUR;
+      const rel = (localT - start) / TITLE_HL_LINE_DUR;
+      const p = Math.max(0, Math.min(rel, 1));
+
+      if (p > 0) {
+        const w = ctx.measureText(line).width;
+        ctx.fillStyle = "#0088d8";
+        ctx.fillRect(marginLeft - 4, y - 30, w * p + 8, 44);
+        ctx.fillStyle = "#fff";
+      } else {
+        ctx.fillStyle = "#fff";
+      }
+
       ctx.fillText(line, marginLeft, y);
       y += 36;
+      lineIndex++;
     }
   }
-
-  ctx.restore();
 }
 
 /* ============================================================
@@ -722,7 +772,7 @@ function recomputeTargetDuration() {
     pageDurations.push(d);
   }
 
-  const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
+  const animCore = getTitleAnimCore();
   const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
 
   const contentDurNoGap = pageDurations.reduce((a, b) => a + b, 0);
@@ -735,7 +785,7 @@ function recomputeTargetDuration() {
    FRAME RENDER SELECTOR
    ============================================================ */
 function drawFrame(globalT) {
-  const animCore = Math.max(TITLE_FADE_IN, TITLE_WIPE);
+  const animCore = getTitleAnimCore();
   const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
   const afterTitleGap = titleTotal + 1;
 

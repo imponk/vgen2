@@ -301,12 +301,22 @@ let targetDuration = 12;
 let bodyPages = [];
 let pageDurations = [];
 
+// Layout judul yang sudah diprecompute
+let titleLayout = {
+  marginLeft: 110,
+  marginRight: 140,
+  textWidth: LOGICAL_WIDTH - 110 - 140,
+  upperLines: [],
+  titleLines: [],
+  subtitleLines: []
+};
+
 /* ============================================================
    TITLE TIMING (smooth, Versi 2 + linear wipe)
    ============================================================ */
 const TITLE_PRE_HOLD = 0.3;   // 0–0.3s judul full statis
 const TITLE_FADE_IN  = 0.45;
-const TITLE_WIPE     = 0.45;  // dipendekkan sedikit supaya terasa lincah
+const TITLE_WIPE     = 0.45;  // linear, stabil
 const TITLE_STATIC   = 2.5;
 
 /* ============================================================
@@ -324,7 +334,10 @@ function setStatus(t) {
 /* ============================================================
    TEXT WRAPPING + HIGHLIGHT TOKENIZER
    ============================================================ */
-function wrapText(text, maxWidth) {
+function wrapText(text, maxWidth, fontSpec) {
+  // optional: set fontSpec sementara untuk akurasi measure
+  if (fontSpec) ctx.font = fontSpec;
+
   const paragraphs = text.split(/\r?\n/);
   const lines = [];
 
@@ -483,20 +496,59 @@ function easeOut(t) {
 }
 
 /* ============================================================
-   TITLE SLIDE – Versi 2 + linear wipe
+   PRECOMPUTE TITLE LAYOUT
+   ============================================================ */
+function rebuildTitleLayout() {
+  const marginLeft = 110;
+  const marginRight = 140;
+  const textWidth = LOGICAL_WIDTH - marginLeft - marginRight;
+
+  const upper = upperEl.value.trim();
+  const title = titleEl.value.trim();
+  const subtitle = subtitleEl.value.trim();
+
+  // gunakan font yang sama dengan drawing
+  const upperFont   = "700 34px 'PlusJakartaCustom'";
+  const titleFont   = "400 100px 'DM Serif Display'";
+  const subtitleFont= "700 34px 'PlusJakartaCustom'";
+
+  let upperLines = [];
+  let titleLines = [];
+  let subtitleLines = [];
+
+  if (upper) {
+    upperLines = wrapText(upper, textWidth, upperFont);
+  }
+  if (title) {
+    titleLines = wrapText(title, textWidth, titleFont);
+  }
+  if (subtitle) {
+    subtitleLines = wrapText(subtitle, textWidth, subtitleFont);
+  }
+
+  titleLayout = {
+    marginLeft,
+    marginRight,
+    textWidth,
+    upperLines,
+    titleLines,
+    subtitleLines
+  };
+}
+
+/* ============================================================
+   TITLE SLIDE – Versi 2 + linear wipe, pakai layout precompute
    ============================================================ */
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
   const H = LOGICAL_HEIGHT;
   drawBaseBackground();
 
-  const upper = upperEl.value.trim();
-  const title = titleEl.value.trim();
-  const subtitle = subtitleEl.value.trim();
-
-  const marginLeft = 110;
-  const marginRight = 140;
-  const textWidth = W - marginLeft - marginRight;
+  const marginLeft  = titleLayout.marginLeft;
+  const textWidth   = titleLayout.textWidth;
+  const upperLines  = titleLayout.upperLines;
+  const titleLines  = titleLayout.titleLines;
+  const subtitleLines = titleLayout.subtitleLines;
 
   let y = H - 700;
 
@@ -515,7 +567,7 @@ function drawTitleScene(t) {
     const pFade = easeOut(Math.min(tt / TITLE_FADE_IN, 1));
     alpha = 0.85 + 0.15 * pFade;
 
-    // Wipe LINEAR: tidak ngerem di ujung
+    // Wipe LINEAR: stabil
     const pWipe = Math.min(tt / TITLE_WIPE, 1);
     wipe = pWipe;
   } else {
@@ -531,10 +583,10 @@ function drawTitleScene(t) {
   ctx.textAlign = 'left';
 
   // upper
-  if (upper) {
+  if (upperLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     ctx.fillStyle = "#fff";
-    for (const line of wrapText(upper, textWidth)) {
+    for (const line of upperLines) {
       ctx.fillText(line, marginLeft, y);
       y += 36;
     }
@@ -542,10 +594,10 @@ function drawTitleScene(t) {
   }
 
   // title
-  if (title) {
+  if (titleLines.length > 0) {
     ctx.font = "400 100px 'DM Serif Display'";
     ctx.fillStyle = "#fff";
-    for (const line of wrapText(title, textWidth)) {
+    for (const line of titleLines) {
       ctx.fillText(line, marginLeft, y);
       y += 100;
     }
@@ -553,10 +605,10 @@ function drawTitleScene(t) {
   }
 
   // subtitle
-  if (subtitle) {
+  if (subtitleLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     ctx.fillStyle = "#fff";
-    for (const line of wrapText(subtitle, textWidth)) {
+    for (const line of subtitleLines) {
       ctx.fillText(line, marginLeft, y);
       y += 36;
     }
@@ -656,7 +708,10 @@ function rebuildBodyPages() {
    DURATION CALC
    ============================================================ */
 function recomputeTargetDuration() {
+  // precompute judul dan isi
+  rebuildTitleLayout();
   rebuildBodyPages();
+
   pageDurations = [];
 
   for (const page of bodyPages) {
@@ -861,8 +916,12 @@ renderBtn.addEventListener("click", () => {
    INITIAL FRAME
    ============================================================ */
 if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(() => drawFrame(0));
+  document.fonts.ready.then(() => {
+    rebuildTitleLayout();
+    drawFrame(0);
+  });
 } else {
+  rebuildTitleLayout();
   drawFrame(0);
 }
 </script>

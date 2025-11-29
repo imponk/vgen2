@@ -9,7 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
 
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     @font-face {
       font-family: 'PlusJakartaCustom';
@@ -21,66 +23,103 @@
 
     body {
       margin: 0;
-      padding: 16px;
+      padding: 12px;
       display: flex;
       gap: 16px;
-      background: #0f172a;
+      background: radial-gradient(circle at top, #020617 0%, #020617 40%, #020617 100%);
       color: #e5e7eb;
       font-family: 'PlusJakartaCustom', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
     .panel {
       background: #020617;
-      padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      padding: 16px 14px;
+      border-radius: 14px;
+      border: 1px solid #1f2937;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.65);
     }
+
     .left {
-      width: 360px;
+      width: 380px;
+      max-width: 100%;
       flex-shrink: 0;
     }
+
     .right {
       flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
+      min-width: 0;
     }
+
     h2 {
-      margin: 0 0 6px 0;
+      margin: 0 0 4px 0;
       font-size: 18px;
+      letter-spacing: 0.02em;
     }
+
     small {
       font-size: 11px;
       color: #9ca3af;
+      display: block;
+      margin-bottom: 6px;
+      line-height: 1.4;
     }
-    .field { margin-top: 10px; }
+
+    .field {
+      margin-top: 10px;
+    }
+
     label {
       font-size: 13px;
       display: block;
       margin-bottom: 4px;
-      color: #9ca3af;
+      color: #cbd5f5;
     }
+
     textarea {
       width: 100%;
-      min-height: 50px;
+      min-height: 56px;
       background: #020617;
       color: #e5e7eb;
-      border-radius: 8px;
-      border: 1px solid #1f2937;
-      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      padding: 9px 11px;
       font-size: 14px;
+      line-height: 1.5;
       resize: vertical;
       outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
     }
+
+    /* field "Isi" lebih tinggi default */
+    #body {
+      min-height: 130px;
+    }
+
+    textarea::placeholder {
+      color: #64748b;
+    }
+
+    textarea:hover {
+      border-color: #4b5563;
+      background: #020819;
+    }
+
     textarea:focus {
       border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37,99,235,0.8);
+      background: #020819;
     }
+
     .btn-row {
-      margin-top: 10px;
+      margin-top: 12px;
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
+
     button {
       padding: 8px 16px;
       border-radius: 999px;
@@ -88,21 +127,99 @@
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color 0.16s ease, transform 0.08s ease, box-shadow 0.16s ease;
     }
-    .btn-primary { background: #2563eb; color: #fff; }
-    .btn-secondary { background: #111827; color: #e5e7eb; }
+
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(37,99,235,0.5);
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(37,99,235,0.6);
+    }
+
+    .btn-secondary {
+      background: #111827;
+      color: #e5e7eb;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.55);
+    }
+
+    .btn-secondary:hover {
+      background: #0f172a;
+      transform: translateY(-1px);
+    }
+
     .status {
       margin-top: 8px;
       font-size: 12px;
       color: #9ca3af;
     }
-    #download { margin-top: 8px; font-size: 13px; }
+
+    #download {
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
     canvas {
       background: #808080;
       border-radius: 18px;
       border: 1px solid #4b5563;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.65);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
       max-height: 92vh;
+      max-width: 100%;
+    }
+
+    /* =========================
+       RESPONSIVE / MOBILE
+       ========================= */
+    @media (max-width: 900px) {
+      body {
+        flex-direction: column;
+        padding: 10px;
+      }
+
+      .left,
+      .right {
+        width: 100%;
+      }
+
+      .right {
+        margin-top: 10px;
+      }
+
+      textarea {
+        font-size: 16px; /* supaya di mobile tidak auto-zoom */
+      }
+
+      #body {
+        min-height: 180px; /* field isi lebih lega di HP */
+      }
+
+      .panel {
+        padding: 14px 12px;
+      }
+    }
+
+    @media (max-width: 500px) {
+      h2 {
+        font-size: 16px;
+      }
+
+      small {
+        font-size: 10px;
+      }
+
+      button {
+        flex: 1 1 auto;
+        justify-content: center;
+      }
     }
   </style>
 </head>
@@ -110,29 +227,36 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Upper/Judul/Subjudul: muncul cepat, lalu <b>fade + sapu kiri→kanan</b>.<br>
-      Isi: animasi <b>cepat ringan</b>, highlight [[...]] bergerak <b>per baris</b>.
+      Upper/Judul/Subjudul muncul dulu, lalu <b>fade + sapu kiri→kanan</b>.<br>
+      Isi memakai [[highlight]] per baris dengan animasi cepat dan ringan.
     </small>
+
     <div class="field">
-      <label>Upper</label>
-      <textarea id="upper"></textarea>
+      <label for="upper">Upper</label>
+      <textarea id="upper" placeholder="Contoh: BREAKING NEWS / HEADLINE"></textarea>
     </div>
+
     <div class="field">
-      <label>Judul</label>
-      <textarea id="title"></textarea>
+      <label for="title">Judul</label>
+      <textarea id="title" placeholder="Judul utama yang akan tampil besar di awal video"></textarea>
     </div>
+
     <div class="field">
-      <label>Subjudul</label>
-      <textarea id="subtitle"></textarea>
+      <label for="subtitle">Subjudul</label>
+      <textarea id="subtitle" placeholder="Subjudul singkat sebagai pelengkap judul"></textarea>
     </div>
+
     <div class="field">
-      <label>Isi</label>
-      <textarea id="body" placeholder="Pisah isi 1, isi 2, isi 3 dengan satu baris kosong.&#10;Gunakan [[highlight]] untuk menandai frasa penting."></textarea>
+      <label for="body">Isi</label>
+      <textarea
+        id="body"
+        placeholder="Pisah isi 1, isi 2, isi 3 dengan satu baris kosong.&#10;Gunakan [[highlight]] untuk menandai frasa penting."
+      ></textarea>
     </div>
 
     <div class="btn-row">
-      <button class="btn-secondary" id="previewBtn">Preview</button>
-      <button class="btn-primary" id="renderBtn">Render (WEBM)</button>
+      <button class="btn-secondary" id="previewBtn">👁️ Preview</button>
+      <button class="btn-primary" id="renderBtn">🎬 Render (WEBM)</button>
     </div>
     <div class="status" id="status">Status: idle</div>
     <div id="download"></div>
@@ -151,7 +275,7 @@ const ctx = canvas.getContext('2d');
 
 const LOGICAL_WIDTH = 1080;
 const LOGICAL_HEIGHT = 1920;
-const SCALE = 1.5;  // sebelumnya 2, sekarang 1.5 (≈1620x2880)
+const SCALE = 1.5;  // ≈ 1620 x 2880
 
 canvas.width  = LOGICAL_WIDTH * SCALE;
 canvas.height = LOGICAL_HEIGHT * SCALE;
@@ -178,11 +302,11 @@ let bodyPages = [];
 let pageDurations = [];
 
 /* ============================================================
-   TITLE TIMING (smooth)
+   TITLE TIMING (smooth, Versi 2)
    ============================================================ */
-const TITLE_PRE_HOLD = 0.08;
+const TITLE_PRE_HOLD = 0.3;   // 0–0.3s judul full statis
 const TITLE_FADE_IN  = 0.45;
-const TITLE_WIPE     = 0.59;
+const TITLE_WIPE     = 0.55;
 const TITLE_STATIC   = 2.5;
 
 /* ============================================================
@@ -359,7 +483,7 @@ function easeOut(t) {
 }
 
 /* ============================================================
-   TITLE SLIDE
+   TITLE SLIDE – Versi 2
    ============================================================ */
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
@@ -381,13 +505,17 @@ function drawTitleScene(t) {
   let wipe = 1;
 
   if (t < TITLE_PRE_HOLD) {
+    // 0 → TITLE_PRE_HOLD: judul FULL, statis
     alpha = 1;
     wipe = 1;
   } else if (t < TITLE_PRE_HOLD + maxAnim) {
     const tt = t - TITLE_PRE_HOLD;
+
+    // Versi 2: alpha tidak dari 0, tapi 0.85 → 1.00
     const pFade = easeOut(Math.min(tt / TITLE_FADE_IN, 1));
+    alpha = 0.85 + 0.15 * pFade;
+
     const pWipe = easeOut(Math.min(tt / TITLE_WIPE, 1));
-    alpha = pFade;
     wipe = pWipe;
   } else {
     alpha = 1;
@@ -624,6 +752,12 @@ renderBtn.addEventListener("click", () => {
   if (typeof MediaRecorder === "undefined") {
     alert("MediaRecorder tidak tersedia di perangkat ini.");
     setStatus("MediaRecorder tidak didukung");
+    return;
+  }
+
+  if (typeof canvas.captureStream !== "function") {
+    alert("Browser ini tidak mendukung perekaman langsung dari canvas.\n\nCoba gunakan Chrome/Edge/Brave di Android atau render dari laptop/PC.");
+    setStatus("captureStream tidak didukung di browser ini");
     return;
   }
 

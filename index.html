@@ -227,7 +227,7 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Upper/Judul/Subjudul pakai highlight sapuan per baris, seperti isi.<br>
+      Judul: statis dulu sebentar, lalu efek wipe halus kiri→kanan pada teks (tanpa highlight warna).<br>
       Isi memakai [[highlight]] per baris dengan animasi cepat dan ringan.
     </small>
 
@@ -301,7 +301,7 @@ let targetDuration = 12;
 let bodyPages = [];
 let pageDurations = [];
 
-// Layout judul yang sudah diprecompute
+// Layout judul precompute
 let titleLayout = {
   marginLeft: 110,
   marginRight: 140,
@@ -312,11 +312,11 @@ let titleLayout = {
 };
 
 /* ============================================================
-   TITLE TIMING – versi highlight seperti isi
+   TITLE TIMING – statis + wipe teks
    ============================================================ */
-const TITLE_PRE_HOLD = 0.3;          // 0–0.3s: judul full statis
-const TITLE_HL_LINE_DUR = 0.6;      // tiap baris highlight 0.6s
-const TITLE_STATIC     = 2.0;       // hold setelah highlight selesai
+const TITLE_PRE_HOLD = 0.3;   // 0–0.3s: judul full statis (aman untuk thumbnail)
+const TITLE_WIPE     = 0.5;   // durasi wipe efek glint teks
+const TITLE_STATIC   = 2.0;   // hold setelah wipe selesai
 
 /* ============================================================
    BODY TIMING
@@ -526,16 +526,8 @@ function rebuildTitleLayout() {
   };
 }
 
-function getTitleAnimCore() {
-  const totalLines =
-    titleLayout.upperLines.length +
-    titleLayout.titleLines.length +
-    titleLayout.subtitleLines.length;
-  return totalLines * TITLE_HL_LINE_DUR;
-}
-
 /* ============================================================
-   TITLE SLIDE – highlight per baris seperti isi
+   TITLE SLIDE – static + wipe glint pada teks (tanpa highlight)
    ============================================================ */
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
@@ -551,120 +543,88 @@ function drawTitleScene(t) {
   ctx.textAlign = 'left';
   ctx.fillStyle = '#fff';
 
-  // posisi umum
   let y = H - 700;
 
-  // 1) fase PRE_HOLD: semua teks tampil penuh, tanpa highlight
-  if (t < TITLE_PRE_HOLD) {
-    // upper
-    if (upperLines.length > 0) {
-      ctx.font = "700 34px 'PlusJakartaCustom'";
-      for (const line of upperLines) {
-        ctx.fillText(line, marginLeft, y);
-        y += 36;
-      }
-      y += 70;
-    }
-
-    // title
-    if (titleLines.length > 0) {
-      ctx.font = "400 100px 'DM Serif Display'";
-      for (const line of titleLines) {
-        ctx.fillText(line, marginLeft, y);
-        y += 100;
-      }
-      y -= 20;
-    }
-
-    // subtitle
-    if (subtitleLines.length > 0) {
-      ctx.font = "700 34px 'PlusJakartaCustom'";
-      for (const line of subtitleLines) {
-        ctx.fillText(line, marginLeft, y);
-        y += 36;
-      }
-    }
-
-    return;
-  }
-
-  // 2) fase highlight berjalan
-  const animCore = getTitleAnimCore();
-  const localT = Math.min(t - TITLE_PRE_HOLD, animCore + TITLE_STATIC);
-
-  let lineIndex = 0;
-  y = H - 700;
-
-  // upper lines
+  // 1) Gambar base text selalu dulu (judul full bersih)
   if (upperLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     for (const line of upperLines) {
-      const start = lineIndex * TITLE_HL_LINE_DUR;
-      const rel = (localT - start) / TITLE_HL_LINE_DUR;
-      const p = Math.max(0, Math.min(rel, 1)); // linear, halus
-
-      if (p > 0) {
-        const w = ctx.measureText(line).width;
-        ctx.fillStyle = "#0088d8";
-        ctx.fillRect(marginLeft - 4, y - 30, w * p + 8, 44);
-        ctx.fillStyle = "#fff";
-      } else {
-        ctx.fillStyle = "#fff";
-      }
-
       ctx.fillText(line, marginLeft, y);
       y += 36;
-      lineIndex++;
     }
     y += 70;
   }
 
-  // title lines
   if (titleLines.length > 0) {
     ctx.font = "400 100px 'DM Serif Display'";
     for (const line of titleLines) {
-      const start = lineIndex * TITLE_HL_LINE_DUR;
-      const rel = (localT - start) / TITLE_HL_LINE_DUR;
-      const p = Math.max(0, Math.min(rel, 1));
-
-      if (p > 0) {
-        const w = ctx.measureText(line).width;
-        ctx.fillStyle = "#0088d8";
-        ctx.fillRect(marginLeft - 8, y - 90, w * p + 16, 120);
-        ctx.fillStyle = "#fff";
-      } else {
-        ctx.fillStyle = "#fff";
-      }
-
       ctx.fillText(line, marginLeft, y);
       y += 100;
-      lineIndex++;
     }
     y -= 20;
   }
 
-  // subtitle lines
   if (subtitleLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     for (const line of subtitleLines) {
-      const start = lineIndex * TITLE_HL_LINE_DUR;
-      const rel = (localT - start) / TITLE_HL_LINE_DUR;
-      const p = Math.max(0, Math.min(rel, 1));
-
-      if (p > 0) {
-        const w = ctx.measureText(line).width;
-        ctx.fillStyle = "#0088d8";
-        ctx.fillRect(marginLeft - 4, y - 30, w * p + 8, 44);
-        ctx.fillStyle = "#fff";
-      } else {
-        ctx.fillStyle = "#fff";
-      }
-
       ctx.fillText(line, marginLeft, y);
       y += 36;
-      lineIndex++;
     }
   }
+
+  // 2) Jika masih dalam fase PRE_HOLD → cukup base text saja (statis)
+  if (t < TITLE_PRE_HOLD) {
+    return;
+  }
+
+  // 3) Fase wipe: glint teks dari kiri ke kanan, tanpa background bar
+  const localT = t - TITLE_PRE_HOLD;
+  if (localT <= 0) return;
+
+  const p = Math.max(0, Math.min(localT / TITLE_WIPE, 1)); // linear
+  if (p <= 0) return;
+
+  // Gambar overlay teks (glow) hanya di area kiri→kanan sesuai progress
+  const overlayAlpha = 0.6;  // seberapa kuat efek wipe
+  ctx.save();
+  ctx.globalAlpha = overlayAlpha;
+
+  // Clip: area sapu dari kiri
+  ctx.beginPath();
+  ctx.rect(marginLeft, 0, textWidth * p, H);
+  ctx.clip();
+
+  // Gambar lagi teks dengan warna yang sama (atau bisa sedikit berbeda)
+  ctx.fillStyle = "#ffffff";
+
+  y = H - 700;
+  if (upperLines.length > 0) {
+    ctx.font = "700 34px 'PlusJakartaCustom'";
+    for (const line of upperLines) {
+      ctx.fillText(line, marginLeft, y);
+      y += 36;
+    }
+    y += 70;
+  }
+
+  if (titleLines.length > 0) {
+    ctx.font = "400 100px 'DM Serif Display'";
+    for (const line of titleLines) {
+      ctx.fillText(line, marginLeft, y);
+      y += 100;
+    }
+    y -= 20;
+  }
+
+  if (subtitleLines.length > 0) {
+    ctx.font = "700 34px 'PlusJakartaCustom'";
+    for (const line of subtitleLines) {
+      ctx.fillText(line, marginLeft, y);
+      y += 36;
+    }
+  }
+
+  ctx.restore();
 }
 
 /* ============================================================
@@ -772,9 +732,7 @@ function recomputeTargetDuration() {
     pageDurations.push(d);
   }
 
-  const animCore = getTitleAnimCore();
-  const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
-
+  const titleTotal = TITLE_PRE_HOLD + TITLE_WIPE + TITLE_STATIC;
   const contentDurNoGap = pageDurations.reduce((a, b) => a + b, 0);
   const gapDur = PAGE_GAP * (bodyPages.length - 1);
 
@@ -785,8 +743,7 @@ function recomputeTargetDuration() {
    FRAME RENDER SELECTOR
    ============================================================ */
 function drawFrame(globalT) {
-  const animCore = getTitleAnimCore();
-  const titleTotal = TITLE_PRE_HOLD + animCore + TITLE_STATIC;
+  const titleTotal = TITLE_PRE_HOLD + TITLE_WIPE + TITLE_STATIC;
   const afterTitleGap = titleTotal + 1;
 
   if (globalT <= titleTotal) {

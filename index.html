@@ -227,7 +227,7 @@
   <div class="panel left">
     <h2>Reels – Upper / Judul / Subjudul / Isi</h2>
     <small>
-      Judul: statis dulu sebentar, lalu efek wipe halus kiri→kanan pada teks (tanpa highlight warna).<br>
+      Judul: awalnya statis penuh (thumbnail aman), lalu efek wipe halus kiri→kanan pada teks (tanpa bar highlight).<br>
       Isi memakai [[highlight]] per baris dengan animasi cepat dan ringan.
     </small>
 
@@ -527,7 +527,7 @@ function rebuildTitleLayout() {
 }
 
 /* ============================================================
-   TITLE SLIDE – static + wipe glint pada teks (tanpa highlight)
+   TITLE SLIDE – static + wipe glint pada teks (tanpa highlight bar)
    ============================================================ */
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
@@ -541,11 +541,19 @@ function drawTitleScene(t) {
   const subtitleLines = titleLayout.subtitleLines;
 
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#fff';
 
   let y = H - 700;
 
-  // 1) Gambar base text selalu dulu (judul full bersih)
+  // 1) Base text: selalu digambar dulu
+  //    - PRE_HOLD: terang penuh
+  //    - WIPE: sedikit redup sehingga wipe terlihat
+  const inWipePhase = t >= TITLE_PRE_HOLD && t < TITLE_PRE_HOLD + TITLE_WIPE;
+  const baseAlpha = inWipePhase ? 0.35 : 1.0;
+
+  ctx.save();
+  ctx.globalAlpha = baseAlpha;
+  ctx.fillStyle = '#ffffff';
+
   if (upperLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     for (const line of upperLines) {
@@ -572,32 +580,30 @@ function drawTitleScene(t) {
     }
   }
 
-  // 2) Jika masih dalam fase PRE_HOLD → cukup base text saja (statis)
+  ctx.restore();
+
+  // 2) Kalau masih PRE_HOLD → cukup base text (statis, thumbnail)
   if (t < TITLE_PRE_HOLD) {
     return;
   }
 
-  // 3) Fase wipe: glint teks dari kiri ke kanan, tanpa background bar
+  // 3) Fase WIPE: bagian kiri→kanan dibuat terang penuh
   const localT = t - TITLE_PRE_HOLD;
   if (localT <= 0) return;
 
   const p = Math.max(0, Math.min(localT / TITLE_WIPE, 1)); // linear
   if (p <= 0) return;
 
-  // Gambar overlay teks (glow) hanya di area kiri→kanan sesuai progress
-  const overlayAlpha = 0.6;  // seberapa kuat efek wipe
   ctx.save();
-  ctx.globalAlpha = overlayAlpha;
-
-  // Clip: area sapu dari kiri
   ctx.beginPath();
   ctx.rect(marginLeft, 0, textWidth * p, H);
   ctx.clip();
 
-  // Gambar lagi teks dengan warna yang sama (atau bisa sedikit berbeda)
-  ctx.fillStyle = "#ffffff";
+  ctx.globalAlpha = 1.0;
+  ctx.fillStyle = '#ffffff';
 
   y = H - 700;
+
   if (upperLines.length > 0) {
     ctx.font = "700 34px 'PlusJakartaCustom'";
     for (const line of upperLines) {

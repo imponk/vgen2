@@ -269,9 +269,12 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+const ua = navigator.userAgent;
+const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+
 const LOGICAL_WIDTH = 1080;
 const LOGICAL_HEIGHT = 1920;
-const SCALE = 1.5;
+const SCALE = isMobile ? 0.9 : 1.5;   // mobile lebih ringan
 
 canvas.width  = LOGICAL_WIDTH * SCALE;
 canvas.height = LOGICAL_HEIGHT * SCALE;
@@ -516,7 +519,7 @@ function rebuildTitleLayout() {
 }
 
 /* ============================================================
-   TITLE SCENE – statis → hilang → wipe → full lagi
+   TITLE SCENE – statis → hilang → wipe → full lagi (dengan easing)
    ============================================================ */
 function drawTitleScene(t) {
   const W = LOGICAL_WIDTH;
@@ -570,13 +573,16 @@ function drawTitleScene(t) {
     return;
   }
 
-  // 2) Fase wipe
+  // 2) Fase wipe (dengan easing smoothstep)
   const localT = t - TITLE_PRE_HOLD;
 
   if (localT < TITLE_WIPE) {
-    const p = Math.max(0, Math.min(localT / TITLE_WIPE, 1));
+    let raw = localT / TITLE_WIPE;
+    if (raw < 0) raw = 0;
+    if (raw > 1) raw = 1;
 
-    // Latar sudah abu-abu, sekarang teks hanya muncul di area yang sudah "disapu"
+    const p = raw * raw * (3 - 2 * raw); // smoothstep
+
     ctx.save();
     ctx.beginPath();
     ctx.rect(marginLeft, 0, textWidth * p, H);
@@ -697,6 +703,11 @@ function recomputeTargetDuration() {
   const gapDur = PAGE_GAP * (bodyPages.length - 1);
 
   targetDuration = titleTotal + 1 + (contentDurNoGap + gapDur);
+
+  // batas durasi di HP supaya tidak terlalu berat
+  if (isMobile && targetDuration > 18) {
+    targetDuration = 18;
+  }
 }
 
 /* ============================================================
@@ -784,7 +795,9 @@ renderBtn.addEventListener("click", () => {
   }
 
   recomputeTargetDuration();
-  const stream = canvas.captureStream(30);
+
+  const FPS = isMobile ? 24 : 30;
+  const stream = canvas.captureStream(FPS);
   recordedChunks = [];
 
   const candidates = [

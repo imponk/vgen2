@@ -300,6 +300,7 @@ let targetDuration = 12;
 let bodyPages = [];
 let pageDurations = [];
 
+/* ====== TITLE LAYOUT & OFFSCREEN CANVAS ====== */
 let titleLayout = {
   marginLeft: 110,
   marginRight: 140,
@@ -308,6 +309,10 @@ let titleLayout = {
   titleLines: [],
   subtitleLines: []
 };
+
+let titleCanvas = null;
+let titleCtx = null;
+let titleTextureReady = false;
 
 /* ============================================================
    TIMING
@@ -479,7 +484,7 @@ function drawBaseBackground() {
 }
 
 /* ============================================================
-   TITLE LAYOUT
+   TITLE LAYOUT & OFFSCREEN RENDER
    ============================================================ */
 function rebuildTitleLayout() {
   const marginLeft = 110;
@@ -516,85 +521,104 @@ function rebuildTitleLayout() {
     titleLines,
     subtitleLines
   };
+
+  rebuildTitleTexture();
+}
+
+function rebuildTitleTexture() {
+  // buat offscreen canvas untuk judul
+  titleCanvas = document.createElement('canvas');
+  titleCanvas.width = LOGICAL_WIDTH;
+  titleCanvas.height = LOGICAL_HEIGHT;
+  titleCtx = titleCanvas.getContext('2d');
+
+  // gambar judul full sekali saja
+  titleCtx.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+  titleCtx.fillStyle = '#ffffff';
+  titleCtx.textAlign = 'left';
+
+  const marginLeft = titleLayout.marginLeft;
+  const upperLines = titleLayout.upperLines;
+  const titleLines = titleLayout.titleLines;
+  const subtitleLines = titleLayout.subtitleLines;
+
+  let y = LOGICAL_HEIGHT - 700;
+
+  if (upperLines.length > 0) {
+    titleCtx.font = "700 34px 'PlusJakartaCustom'";
+    for (const line of upperLines) {
+      titleCtx.fillText(line, marginLeft, y);
+      y += 36;
+    }
+    y += 70;
+  }
+
+  if (titleLines.length > 0) {
+    titleCtx.font = "400 100px 'DM Serif Display'";
+    for (const line of titleLines) {
+      titleCtx.fillText(line, marginLeft, y);
+      y += 100;
+    }
+    y -= 20;
+  }
+
+  if (subtitleLines.length > 0) {
+    titleCtx.font = "700 34px 'PlusJakartaCustom'";
+    for (const line of subtitleLines) {
+      titleCtx.fillText(line, marginLeft, y);
+      y += 36;
+    }
+  }
+
+  titleTextureReady = true;
 }
 
 /* ============================================================
-   TITLE SCENE – statis → hilang → wipe → full lagi (dengan easing)
+   TITLE SCENE – pakai offscreen canvas + crop
    ============================================================ */
 function drawTitleScene(t) {
-  const W = LOGICAL_WIDTH;
-  const H = LOGICAL_HEIGHT;
   drawBaseBackground();
 
-  const marginLeft    = titleLayout.marginLeft;
-  const textWidth     = titleLayout.textWidth;
-  const upperLines    = titleLayout.upperLines;
-  const titleLines    = titleLayout.titleLines;
-  const subtitleLines = titleLayout.subtitleLines;
+  const marginLeft = titleLayout.marginLeft;
+  const textWidth  = titleLayout.textWidth;
 
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#ffffff';
-
-  function drawFullTitle() {
-    let y = H - 700;
-
-    if (upperLines.length > 0) {
-      ctx.font = "700 34px 'PlusJakartaCustom'";
-      for (const line of upperLines) {
-        ctx.fillText(line, marginLeft, y);
-        y += 36;
-      }
-      y += 70;
-    }
-
-    if (titleLines.length > 0) {
-      ctx.font = "400 100px 'DM Serif Display'";
-      for (const line of titleLines) {
-        ctx.fillText(line, marginLeft, y);
-        y += 100;
-      }
-      y -= 20;
-    }
-
-    if (subtitleLines.length > 0) {
-      ctx.font = "700 34px 'PlusJakartaCustom'";
-      for (const line of subtitleLines) {
-        ctx.fillText(line, marginLeft, y);
-        y += 36;
-      }
-    }
-  }
-
-  const titleTotal = TITLE_PRE_HOLD + TITLE_WIPE + TITLE_STATIC;
-
-  // 1) Fase statis awal: judul full → thumbnail aman
-  if (t < TITLE_PRE_HOLD) {
-    drawFullTitle();
+  // kalau belum siap, fallback: jangan crash
+  if (!titleTextureReady || !titleCanvas) {
     return;
   }
 
-  // 2) Fase wipe (dengan easing smoothstep)
+  // 1) Fase statis awal: judul full → thumbnail aman
+  if (t < TITLE_PRE_HOLD) {
+    ctx.drawImage(titleCanvas, 0, 0);
+    return;
+  }
+
   const localT = t - TITLE_PRE_HOLD;
 
+  // 2) Fase wipe: buka "tirai" dari kiri ke kanan
   if (localT < TITLE_WIPE) {
     let raw = localT / TITLE_WIPE;
     if (raw < 0) raw = 0;
     if (raw > 1) raw = 1;
 
-    const p = raw * raw * (3 - 2 * raw); // smoothstep
+    // smoothstep biar halus, tanpa patah di tengah
+    const p = raw * raw * (3 - 2 * raw);
+
+    // lebar area yang sudah terbuka
+    const clipWidth = marginLeft + textWidth * p;
 
     ctx.save();
     ctx.beginPath();
-    ctx.rect(marginLeft, 0, textWidth * p, H);
+    ctx.rect(0, 0, clipWidth, LOGICAL_HEIGHT);
     ctx.clip();
 
-    drawFullTitle();
+    ctx.drawImage(titleCanvas, 0, 0);
     ctx.restore();
     return;
   }
 
-  // 3) Setelah wipe, selama TITLE_STATIC → judul full lagi
-  drawFullTitle();
+  // 3) Setelah wipe selesai: tampilkan judul penuh lagi
+  ctx.drawImage(titleCanvas, 0, 0);
 }
 
 /* ============================================================

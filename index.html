@@ -5,20 +5,21 @@
   <title>Reels – Fast Light (Upper/Judul/Subjudul + Isi)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- DM Serif Display Bold (custom, lokal) hanya untuk Judul -->
-  @font-face {
-    font-family: 'DMSerifCustomBold';
-    src: url('./fonts/DMSerifDisplay-Bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-  }
-
   <style>
     * {
       box-sizing: border-box;
     }
 
+    /* DM Serif Bold custom untuk judul */
+    @font-face {
+      font-family: 'DMSerifCustomBold';
+      src: url('./fonts/DMSerifDisplay-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* Plus Jakarta Bold lokal */
     @font-face {
       font-family: 'PlusJakartaCustom';
       src: url('./fonts/PlusJakartaSans-Bold.woff2') format('woff2');
@@ -501,7 +502,7 @@ function rebuildTitleLayout() {
   const subtitle = subtitleEl.value.trim();
 
   const upperFont    = "700 34px 'PlusJakartaCustom'";
-  const titleFont    = "700 90px 'DMSerifCustomBold'";    // DM Serif Bold custom
+  const titleFont    = "700 90px 'DMSerifCustomBold'";    // pakai DM Serif Bold custom
   const subtitleFont = "700 34px 'PlusJakartaCustom'";
 
   let upperLines = [];

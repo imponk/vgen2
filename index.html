@@ -323,9 +323,9 @@ let titleTextureReady = false;
 /* ============================================================
    TIMING
    ============================================================ */
-const TITLE_PRE_HOLD = 0.3;   // statis full (thumbnail)
+const TITLE_PRE_HOLD = 0.3;   // detik judul statis penuh (thumbnail)
 const TITLE_WIPE     = 0.8;   // durasi wipe
-const TITLE_STATIC   = 2.0;   // setelah wipe, judul full lagi
+const TITLE_STATIC   = 2.0;   // setelah wipe, judul penuh lagi
 
 const BODY_FADE_IN   = 0.3;
 const BODY_WIPE      = 0.4;
@@ -581,7 +581,7 @@ function rebuildTitleTexture() {
 }
 
 /* ============================================================
-   TITLE SCENE – wipe + blur edge
+   TITLE SCENE – wipe halus tanpa garis hitam
    ============================================================ */
 function drawTitleScene(t) {
   drawBaseBackground();
@@ -601,15 +601,14 @@ function drawTitleScene(t) {
 
   const localT = t - TITLE_PRE_HOLD;
 
-  // 2) Fase wipe dengan edge blur
+  // 2) Fase wipe: buka "tirai" dari kiri ke kanan dengan easing (tanpa blur/composite)
   if (localT < TITLE_WIPE) {
     let raw = localT / TITLE_WIPE;
     if (raw < 0) raw = 0;
     if (raw > 1) raw = 1;
 
-    // easing halus
+    // easing halus (smoothstep)
     const p = raw * raw * (3 - 2 * raw);
-
     const clipWidth = marginLeft + textWidth * p;
 
     ctx.save();
@@ -617,26 +616,7 @@ function drawTitleScene(t) {
     ctx.rect(0, 0, clipWidth, LOGICAL_HEIGHT);
     ctx.clip();
 
-    // gambar judul
     ctx.drawImage(titleCanvas, 0, 0);
-
-    // feather / blur edge di ujung sapuan
-    if (p < 0.995) {
-      const feather = 40; // lebar area lembut (px)
-      const edgeX = clipWidth;
-
-      ctx.globalCompositeOperation = 'destination-out';
-
-      const grad = ctx.createLinearGradient(edgeX - feather, 0, edgeX, 0);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(1, 'rgba(0,0,0,1)');
-
-      ctx.fillStyle = grad;
-      ctx.fillRect(edgeX - feather, 0, feather, LOGICAL_HEIGHT);
-
-      ctx.globalCompositeOperation = 'source-over';
-    }
-
     ctx.restore();
     return;
   }

@@ -5,8 +5,14 @@
   <title>Reels – Fast Light (Upper/Judul/Subjudul + Isi)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- DM Serif Display hanya untuk Judul -->
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <!-- DM Serif Display Bold (custom, lokal) hanya untuk Judul -->
+  @font-face {
+    font-family: 'DMSerifCustomBold';
+    src: url('./fonts/DMSerifDisplay-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
 
   <style>
     * {
@@ -317,7 +323,7 @@ let titleTextureReady = false;
    TIMING
    ============================================================ */
 const TITLE_PRE_HOLD = 0.3;   // statis full (thumbnail)
-const TITLE_WIPE     = 0.8;   // DIPANJANGKAN biar halus, 0.8s
+const TITLE_WIPE     = 0.8;   // durasi wipe
 const TITLE_STATIC   = 2.0;   // setelah wipe, judul full lagi
 
 const BODY_FADE_IN   = 0.3;
@@ -453,7 +459,7 @@ function drawWrappedRichParagraph(text, x, yStart, maxWidth, lineGap, normal, hi
       curText = tok.text;
     } else {
       curTokens.push(tok);
-      curText = test;
+      curText = tok.text;
     }
   }
   if (curTokens.length) lines.push(curTokens);
@@ -495,7 +501,7 @@ function rebuildTitleLayout() {
   const subtitle = subtitleEl.value.trim();
 
   const upperFont    = "700 34px 'PlusJakartaCustom'";
-  const titleFont    = "400 90px 'DM Serif Display'";    // <<< 90px, bukan 100px
+  const titleFont    = "700 90px 'DMSerifCustomBold'";    // DM Serif Bold custom
   const subtitleFont = "700 34px 'PlusJakartaCustom'";
 
   let upperLines = [];
@@ -525,7 +531,7 @@ function rebuildTitleLayout() {
 }
 
 function rebuildTitleTexture() {
-  // buat offscreen canvas untuk judul
+  // offscreen canvas untuk judul
   titleCanvas = document.createElement('canvas');
   titleCanvas.width = LOGICAL_WIDTH;
   titleCanvas.height = LOGICAL_HEIGHT;
@@ -553,7 +559,7 @@ function rebuildTitleTexture() {
   }
 
   if (titleLines.length > 0) {
-    titleCtx.font = "400 90px 'DM Serif Display'"; // <<< 90px di sini juga
+    titleCtx.font = "700 90px 'DMSerifCustomBold'"; // DM Serif Bold custom
     for (const line of titleLines) {
       titleCtx.fillText(line, marginLeft, y);
       y += 90;
@@ -599,7 +605,7 @@ function drawTitleScene(t) {
     if (raw < 0) raw = 0;
     if (raw > 1) raw = 1;
 
-    // smoothstep biar halus, tanpa patah di tengah
+    // smoothstep biar halus
     const p = raw * raw * (3 - 2 * raw);
 
     const clipWidth = marginLeft + textWidth * p;

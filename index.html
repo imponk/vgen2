@@ -629,7 +629,7 @@ function fixOrphans(line) {
 }
 
 /* ============================================================
-   ESTIMASI BARIS (UNTUK NAIKKAN ISI PANJANG SEDIKIT)
+   ESTIMASI BARIS (UNTUK ANCHOR BAWAH)
    ============================================================ */
 function estimateLinesForParagraph(text, maxWidth) {
   const tokens = tokenizeHighlighted(text);
@@ -677,7 +677,7 @@ function rebuildBodyPages() {
 }
 
 /* ============================================================
-   DRAW BODY PAGE – NAIK TIPIS UNTUK ISI PANJANG
+   DRAW BODY PAGE – ANCHOR BAWAH (IDEAL 7 BARIS)
    ============================================================ */
 function drawBodyPage(pageIndex, t) {
   drawBaseBackground();
@@ -703,26 +703,33 @@ function drawBodyPage(pageIndex, t) {
   ctx.textAlign = 'left';
   ctx.font = "700 56px 'PlusJakartaCustom'";
 
-  // hitung total "unit baris" untuk halaman ini
+  // hitung total "unit baris" setelah wrap
   let totalUnits = 0;
   for (const raw of lines) {
     if (!raw.trim()) continue;
     totalUnits += estimateLinesForParagraph(raw, maxWidth);
   }
 
-  // default (isi pendek) → posisi lama
-  let y = LOGICAL_HEIGHT - 600; // 1920 - 600 = 1320
-
-  // isi agak panjang → naik sedikit
-  if (totalUnits > 7 && totalUnits <= 11) {
-    y = LOGICAL_HEIGHT - 660;   // naik 60 px → 1260
-  }
-  // isi sangat panjang → naik sedikit lagi
-  else if (totalUnits > 11) {
-    y = LOGICAL_HEIGHT - 720;   // naik 120 px → 1200
-  }
-
   const gap = 64;
+
+  // posisi ideal untuk 7 baris (layout lama)
+  const baseY = LOGICAL_HEIGHT - 600; // 1920 - 600 = 1320
+
+  let y;
+
+  if (totalUnits <= 7) {
+    // isi pendek: pakai posisi lama apa adanya
+    y = baseY;
+  } else if (totalUnits <= 12) {
+    // isi 8–12 baris: anchor di bawah
+    // baris terbawah tetap mendarat di posisi sama dengan 7 baris
+    // yStart = baseY + (7 - totalUnits) * gap
+    y = baseY + (7 - totalUnits) * gap;
+  } else {
+    // >12 baris: treat sebagai 12 baris (disarankan pecah halaman)
+    y = baseY + (7 - 12) * gap;
+  }
+
   let idx = 0;
 
   for (const raw of lines) {

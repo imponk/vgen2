@@ -332,6 +332,9 @@ const BODY_WIPE      = 0.4;
 const HIGHLIGHT_LINE_DUR = 0.8;
 const PAGE_GAP = 0.6;
 
+// Kecepatan baca kira-kira 3 kata / detik (180 kata per menit)
+const READING_WORDS_PER_SEC = 3.0;
+
 function setStatus(t) {
   statusEl.textContent = 'Status: ' + t;
 }
@@ -629,7 +632,7 @@ function fixOrphans(line) {
 }
 
 /* ============================================================
-   ESTIMASI BARIS (UNTUK ANCHOR BAWAH)
+   ESTIMASI BARIS (UNTUK ANCHOR BAWAH & DURASI)
    ============================================================ */
 function estimateLinesForParagraph(text, maxWidth) {
   const tokens = tokenizeHighlighted(text);
@@ -722,7 +725,6 @@ function drawBodyPage(pageIndex, t) {
     y = baseY;
   } else if (totalUnits <= 12) {
     // isi 8–12 baris: anchor di bawah
-    // baris terbawah tetap mendarat di posisi sama dengan 7 baris
     // yStart = baseY + (7 - totalUnits) * gap
     y = baseY + (7 - totalUnits) * gap;
   } else {
@@ -756,7 +758,7 @@ function drawBodyPage(pageIndex, t) {
 }
 
 /* ============================================================
-   DURASI
+   DURASI – BERDASARKAN WAKTU BACA
    ============================================================ */
 function recomputeTargetDuration() {
   rebuildTitleLayout();
@@ -764,11 +766,44 @@ function recomputeTargetDuration() {
 
   pageDurations = [];
 
+  // pastikan font sama seperti saat draw isi
+  ctx.font = "700 56px 'PlusJakartaCustom'";
+
   for (const page of bodyPages) {
-    const chars = page.join(' ').replace(/\s+/g, '').length;
-    let d = 2.5 + chars * 0.035;
-    if (d < 3) d = 3;
-    if (d > 10) d = 10;
+    const joined = page.join(' ').trim();
+    const words = joined ? joined.split(/\s+/).length : 0;
+
+    if (words === 0) {
+      // halaman kosong / sangat pendek
+      pageDurations.push(3);
+      continue;
+    }
+
+    // hitung total "unit baris" di halaman ini
+    const W = LOGICAL_WIDTH;
+    const marginLeft = 110;
+    const marginRight = 140;
+    const maxWidth = W - marginLeft - marginRight;
+
+    let totalUnits = 0;
+    for (const raw of page) {
+      if (!raw.trim()) continue;
+      totalUnits += estimateLinesForParagraph(raw, maxWidth);
+    }
+    if (totalUnits === 0) totalUnits = 1;
+
+    // durasi baca murni (detik) ≈ jumlah kata / kata per detik
+    const readingSeconds = words / READING_WORDS_PER_SEC;
+
+    // durasi minimum supaya semua highlight sempat animasi
+    const animMinimum = totalUnits * HIGHLIGHT_LINE_DUR + 0.5;
+
+    // ambil yang paling besar, lalu clamp agar tidak terlalu absurd
+    let d = Math.max(readingSeconds, animMinimum);
+
+    if (d < 3) d = 3;    // minimal 3 detik per halaman
+    if (d > 12) d = 12;  // maksimal ~12 detik per halaman (boleh dinaikkan kalau mau)
+
     pageDurations.push(d);
   }
 
@@ -776,11 +811,8 @@ function recomputeTargetDuration() {
   const contentDurNoGap = pageDurations.reduce((a, b) => a + b, 0);
   const gapDur = PAGE_GAP * (bodyPages.length - 1);
 
+  // TANPA BATAS HP/LAPTOP: semua judul + semua isi + jeda
   targetDuration = titleTotal + 1 + (contentDurNoGap + gapDur);
-
-  if (isMobile && targetDuration > 18) {
-    targetDuration = 18;
-  }
 }
 
 /* ============================================================

@@ -629,7 +629,7 @@ function fixOrphans(line) {
 }
 
 /* ============================================================
-   ESTIMASI BARIS (UNTUK NAIKKAN ISI Y KALAU PANJANG)
+   ESTIMASI BARIS (UNTUK NAIKKAN ISI PANJANG SEDIKIT)
    ============================================================ */
 function estimateLinesForParagraph(text, maxWidth) {
   const tokens = tokenizeHighlighted(text);
@@ -654,7 +654,7 @@ function estimateLinesForParagraph(text, maxWidth) {
 }
 
 /* ============================================================
-   BODY PAGES – MANUAL (BARIS KOSONG)
+   BODY PAGES – BARIS KOSONG = HALAMAN BARU
    ============================================================ */
 function rebuildBodyPages() {
   const raw = bodyEl.value.split("\n");
@@ -677,7 +677,7 @@ function rebuildBodyPages() {
 }
 
 /* ============================================================
-   DRAW BODY PAGE – TINGGIKAN JIKA PANJANG
+   DRAW BODY PAGE – NAIK TIPIS UNTUK ISI PANJANG
    ============================================================ */
 function drawBodyPage(pageIndex, t) {
   drawBaseBackground();
@@ -710,16 +710,16 @@ function drawBodyPage(pageIndex, t) {
     totalUnits += estimateLinesForParagraph(raw, maxWidth);
   }
 
-  // default: isi pendek → posisi lama
-  let y = LOGICAL_HEIGHT - 600; // 1320 px dari atas
+  // default (isi pendek) → posisi lama
+  let y = LOGICAL_HEIGHT - 600; // 1920 - 600 = 1320
 
-  // isi agak panjang → naik cukup tinggi
+  // isi agak panjang → naik sedikit
   if (totalUnits > 7 && totalUnits <= 11) {
-    y = LOGICAL_HEIGHT - 900;   // 1920 - 900 = 1020
+    y = LOGICAL_HEIGHT - 660;   // naik 60 px → 1260
   }
-  // isi sangat panjang → naik lebih tinggi lagi
+  // isi sangat panjang → naik sedikit lagi
   else if (totalUnits > 11) {
-    y = LOGICAL_HEIGHT - 1200;  // 1920 - 1200 = 720
+    y = LOGICAL_HEIGHT - 720;   // naik 120 px → 1200
   }
 
   const gap = 64;

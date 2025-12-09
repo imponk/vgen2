@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Reels – Fast Light (Upper/Judul/Subjudul + Isi)</title>
+  <title>Reels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -323,7 +323,7 @@ let titleTextureReady = false;
 /* ============================================================
    TIMING
    ============================================================ */
-const TITLE_PRE_HOLD = 0.3;   // detik judul statis penuh (thumbnail)
+const TITLE_PRE_HOLD = 0.3;   // judul statis penuh (thumbnail)
 const TITLE_WIPE     = 0.8;   // durasi wipe
 const TITLE_STATIC   = 2.0;   // setelah wipe, judul penuh lagi
 
@@ -442,7 +442,8 @@ function drawLineFromTokens(tokens, x, y, normalColor, highlightBg, progress) {
     const visible = wInside * progress;
 
     ctx.fillStyle = highlightBg;
-    ctx.fillRect(x + wBefore - 4, y - 44, visible + 8, 58);
+    // disesuaikan untuk font 54px
+    ctx.fillRect(x + wBefore - 4, y - 42, visible + 8, 54);
   }
 
   ctx.fillStyle = normalColor;
@@ -632,9 +633,12 @@ function fixOrphans(line) {
 }
 
 /* ============================================================
-   ESTIMASI BARIS (UNTUK ANCHOR BAWAH & DURASI)
+   ESTIMASI BARIS (UNTUK ANCHOR & DURASI)
    ============================================================ */
 function estimateLinesForParagraph(text, maxWidth) {
+  // gunakan font isi 54px saat mengukur
+  ctx.font = "700 54px 'PlusJakartaCustom'";
+
   const tokens = tokenizeHighlighted(text);
   let lines = 0;
   let curTokens = [];
@@ -704,7 +708,8 @@ function drawBodyPage(pageIndex, t) {
   ctx.clip();
 
   ctx.textAlign = 'left';
-  ctx.font = "700 56px 'PlusJakartaCustom'";
+  // font isi 54px
+  ctx.font = "700 54px 'PlusJakartaCustom'";
 
   // hitung total "unit baris" setelah wrap
   let totalUnits = 0;
@@ -767,7 +772,7 @@ function recomputeTargetDuration() {
   pageDurations = [];
 
   // pastikan font sama seperti saat draw isi
-  ctx.font = "700 56px 'PlusJakartaCustom'";
+  ctx.font = "700 54px 'PlusJakartaCustom'";
 
   for (const page of bodyPages) {
     const joined = page.join(' ').trim();
@@ -779,7 +784,6 @@ function recomputeTargetDuration() {
       continue;
     }
 
-    // hitung total "unit baris" di halaman ini
     const W = LOGICAL_WIDTH;
     const marginLeft = 110;
     const marginRight = 140;
@@ -798,11 +802,11 @@ function recomputeTargetDuration() {
     // durasi minimum supaya semua highlight sempat animasi
     const animMinimum = totalUnits * HIGHLIGHT_LINE_DUR + 0.5;
 
-    // ambil yang paling besar, lalu clamp agar tidak terlalu absurd
+    // ambil yang paling besar, lalu clamp
     let d = Math.max(readingSeconds, animMinimum);
 
     if (d < 3) d = 3;    // minimal 3 detik per halaman
-    if (d > 12) d = 12;  // maksimal ~12 detik per halaman (boleh dinaikkan kalau mau)
+    if (d > 12) d = 12;  // maksimal ~12 detik per halaman
 
     pageDurations.push(d);
   }

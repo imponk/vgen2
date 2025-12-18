@@ -898,6 +898,46 @@ previewBtn.addEventListener("click", () => {
 });
 
 /* ============================================================
+   MEDIARECORDER FALLBACK (VP9 default -> VP8 fallback)
+   Layout tidak berubah, hanya pemilihan codec.
+   ============================================================ */
+function pickBestRecorder(stream) {
+  const candidates = [
+    "video/webm;codecs=vp9", // default
+    "video/webm;codecs=vp8", // fallback
+    "video/webm",
+    "" // let browser decide
+  ];
+
+  let lastError = null;
+
+  for (const mime of candidates) {
+    if (mime && !MediaRecorder.isTypeSupported(mime)) continue;
+
+    try {
+      const opts = mime ? { mimeType: mime } : {};
+      // test cepat: beberapa device error saat start()
+      const test = new MediaRecorder(stream, opts);
+      try {
+        test.start(30);
+        test.stop();
+      } catch (e) {
+        lastError = e;
+        continue;
+      }
+
+      // buat recorder final
+      return { recorder: new MediaRecorder(stream, opts), mime };
+    } catch (e) {
+      lastError = e;
+      continue;
+    }
+  }
+
+  throw lastError || new Error("Tidak ada codec MediaRecorder yang kompatibel.");
+}
+
+/* ============================================================
    RENDER (WEBM)
    ============================================================ */
 renderBtn.addEventListener("click", () => {
@@ -919,35 +959,14 @@ renderBtn.addEventListener("click", () => {
   const stream = canvas.captureStream(FPS);
   recordedChunks = [];
 
-  const candidates = [
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
-    "video/webm",
-    ""
-  ];
-
-  let chosen = null;
-  for (const c of candidates) {
-    if (!c || MediaRecorder.isTypeSupported(c)) {
-      chosen = c;
-      break;
-    }
-  }
-
-  if (chosen == null) {
-    alert("Perangkat ini tidak mendukung perekaman video WebM.");
-    setStatus("Format video tidak didukung");
-    return;
-  }
-
-  let options = {};
-  if (chosen) options.mimeType = chosen;
-
+  let chosenMime = "";
   try {
-    mediaRecorder = new MediaRecorder(stream, options);
+    const res = pickBestRecorder(stream);
+    mediaRecorder = res.recorder;
+    chosenMime = res.mime || "";
   } catch (err) {
-    alert("Gagal membuat MediaRecorder di perangkat ini.\n" + err);
-    setStatus("MediaRecorder gagal dibuat");
+    alert("Perangkat ini tidak mendukung perekaman video WebM (VP9/VP8).\n" + err);
+    setStatus("Format video tidak didukung");
     return;
   }
 
@@ -966,10 +985,14 @@ renderBtn.addEventListener("click", () => {
     const blob = new Blob(recordedChunks, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
 
+    let label = "webm";
+    if (chosenMime.includes("vp9")) label = "vp9";
+    else if (chosenMime.includes("vp8")) label = "vp8";
+
     const a = document.createElement("a");
     a.href = url;
-    a.download = "reels_output.webm";
-    a.textContent = "Download video (WEBM)";
+    a.download = `reels_output_${label}.webm`;
+    a.textContent = `Download video (WEBM ${label.toUpperCase()})`;
     a.style.color = "#38bdf8";
     a.style.textDecoration = "underline";
 
